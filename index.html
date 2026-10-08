@@ -1,0 +1,1543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KDU Explorer</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                }
+            }
+        }
+    </script>
+    <style>
+        [x-cloak] { display: none !important; }
+        @media print {
+            body { background: white !important; }
+            header, button, nav { display: none !important; }
+            .shadow-sm, .shadow-md, .shadow-2xl { box-shadow: none !important; }
+            .border { border-color: #cbd5e1 !important; }
+        }
+        /* Custom scrollbar for mobile view menu */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-p-0 antialiased selection:bg-indigo-500 selection:text-white text-[11px] sm:text-xs" 
+      x-data="curriculumApp()" 
+      x-init="initData()">
+
+    <!-- Header -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm w-full">
+        <div class="w-full px-3 sm:px-6 lg:px-8 py-3 flex flex-col items-stretch gap-3">
+            
+            <!-- Top Branding & Action row -->
+            <div class="flex items-center justify-between w-full">
+                <div class="flex items-center space-x-2.5 sm:space-x-3">
+                    <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-md shadow-indigo-200 shrink-0">
+                        <i class="fa-solid fa-graduation-cap text-base"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-bold text-xs sm:text-base text-slate-900 leading-tight">KDU Explorer</h1>
+                        <p class="text-[10px] sm:text-[11px] text-slate-500">Know, Do and Understand Framework</p>
+                    </div>
+                </div>
+
+                <!-- Desktop / Quick Actions Right side -->
+                <div class="flex items-center space-x-1.5 sm:space-x-2">
+                    <button @click="exportCurrentViewPDF()" 
+                            title="Download PDF"
+                            class="p-2 sm:px-3 sm:py-1.5 rounded-xl border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-xs font-semibold flex items-center space-x-1">
+                        <i class="fa-solid fa-file-pdf"></i>
+                        <span class="hidden sm:inline">Export PDF</span>
+                    </button>
+                    <button @click="resetFilters()" 
+                            title="Reset Filters"
+                            class="p-2 sm:px-3 sm:py-1.5 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 text-xs flex items-center space-x-1">
+                        <i class="fa-solid fa-rotate-right"></i>
+                        <span class="hidden sm:inline">Reset</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Responsive View Switcher: Stacked Vertically on mobile, Horizontal on sm+ -->
+            <div class="bg-slate-100 p-1.5 rounded-xl border border-slate-200 flex flex-col sm:flex-row items-stretch sm:items-center gap-1 sm:gap-1.5 w-full">
+                <button @click="currentView = 'cards'" 
+                        :class="currentView === 'cards' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'"
+                        class="px-3 py-2 sm:py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center justify-center sm:justify-start space-x-2 w-full sm:w-auto">
+                    <i class="fa-solid fa-grip text-indigo-500 sm:text-indigo-600"></i>
+                    <span>Cards View</span>
+                </button>
+                <button @click="currentView = 'table'" 
+                        :class="currentView === 'table' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'"
+                        class="px-3 py-2 sm:py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center justify-center sm:justify-start space-x-2 w-full sm:w-auto">
+                    <i class="fa-solid fa-table-list text-indigo-500 sm:text-indigo-600"></i>
+                    <span>Table View</span>
+                </button>
+                <button @click="currentView = 'tree'" 
+                        :class="currentView === 'tree' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'"
+                        class="px-3 py-2 sm:py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center justify-center sm:justify-start space-x-2 w-full sm:w-auto">
+                    <i class="fa-solid fa-sitemap text-indigo-500 sm:text-indigo-600"></i>
+                    <span>Visual Tree</span>
+                </button>
+                <button @click="currentView = 'understanding_matrix'" 
+                        :class="currentView === 'understanding_matrix' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'"
+                        class="px-3 py-2 sm:py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center justify-center sm:justify-start space-x-2 w-full sm:w-auto">
+                    <i class="fa-solid fa-border-all text-indigo-500 sm:text-indigo-600"></i>
+                    <span>Understanding Matrix</span>
+                </button>
+                <button @click="currentView = 'knows_dos_matrix'" 
+                        :class="currentView === 'knows_dos_matrix' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'"
+                        class="px-3 py-2 sm:py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center justify-center sm:justify-start space-x-2 w-full sm:w-auto">
+                    <i class="fa-solid fa-list-check text-indigo-500 sm:text-indigo-600"></i>
+                    <span>Know & Do Matrix</span>
+                </button>
+            </div>
+
+        </div>
+    </header>
+
+    <main class="w-full px-3 sm:px-6 lg:px-8 py-6 max-w-full">
+
+        <template x-if="loading">
+            <div class="flex flex-col items-center justify-center py-24 space-y-4">
+                <div class="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+                <p class="text-slate-600 font-medium text-xs animate-pulse">Loading curriculum data from secure source...</p>
+            </div>
+        </template>
+
+        <template x-if="error">
+            <div class="bg-red-50 border border-red-200 rounded-2xl p-6 text-center max-w-lg mx-auto my-12 shadow-sm">
+                <div class="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto mb-3 text-base">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
+                <h3 class="text-red-900 font-semibold mb-1 text-sm">Failed to Load Curriculum</h3>
+                <p class="text-red-600 text-xs mb-4" x-text="error"></p>
+                <button @click="initData()" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-semibold transition shadow-sm">
+                    Try Again
+                </button>
+            </div>
+        </template>
+
+        <template x-if="!loading && !error">
+            <div class="space-y-6 w-full" x-data="{ filtersOpen: true }">
+
+                <!-- Filter Controls Section -->
+                <section class="bg-white rounded-2xl p-4 sm:p-6 border border-slate-200 shadow-sm space-y-4 w-full">
+                    <!-- Global Search & Toggle Filters Button -->
+                    <div class="flex flex-col sm:flex-row gap-3 items-center justify-between">
+                        <div class="relative w-full sm:w-96">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
+                                <i class="fa-solid fa-magnifying-glass text-xs"></i>
+                            </span>
+                            <input type="text" 
+                                   x-model.debounce.300ms="searchQuery" 
+                                   @input="currentPage=1"
+                                   placeholder="Search keywords across curriculum..." 
+                                   class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition">
+                        </div>
+
+                        <div class="flex items-center space-x-3 w-full sm:w-auto justify-end">
+                            <span class="font-semibold text-slate-700 text-xs" x-text="filteredItems.length + ' records active'"></span>
+                            
+                            <button @click="filtersOpen = !filtersOpen" 
+                                    class="px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl font-semibold text-xs transition flex items-center space-x-1.5 border border-indigo-200">
+                                <i class="fa-solid fa-filter"></i>
+                                <span x-text="filtersOpen ? 'Hide Filters' : 'Show Filters'"></span>
+                                <i class="fa-solid fa-chevron-down text-[10px] transition-transform duration-200" :class="filtersOpen ? 'rotate-180' : ''"></i>
+                            </button>
+
+                            <button @click="resetFilters()" 
+                                    class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold text-xs transition flex items-center space-x-1.5 border border-slate-200">
+                                <i class="fa-solid fa-rotate-right"></i>
+                                <span>Reset All</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Collapsible Filter Section Container -->
+                    <div x-show="filtersOpen" x-transition class="space-y-4 pt-3 border-t border-slate-100">
+                        
+                        <!-- Row 1: Curriculum Area Dropdown -->
+                        <div class="space-y-1.5 bg-slate-50/70 p-3 rounded-xl border border-slate-200 w-full">
+                            <div class="flex items-center justify-between">
+                                <span class="font-bold text-slate-700 text-xs flex items-center space-x-1">
+                                    <i class="fa-solid fa-layer-group text-indigo-600 text-[10px]"></i>
+                                    <span>Curriculum Area</span>
+                                </span>
+                                <button @click="selectedCurriculumAreas = [...availableCurriculumAreas]; currentPage=1;" class="text-[10px] text-indigo-600 hover:underline font-medium">All</button>
+                            </div>
+                            <div class="relative">
+                                <select x-model="singleSelectedCurriculumArea" 
+                                        @change="updateCurriculumAreaSelection($event.target.value)"
+                                        class="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium appearance-none pr-8">
+                                    <option value="ALL">All Curriculum Areas</option>
+                                    <template x-for="area in availableCurriculumAreas" :key="area">
+                                        <option :value="area" x-text="area" :selected="selectedCurriculumAreas.length === 1 && selectedCurriculumAreas[0] === area"></option>
+                                    </template>
+                                </select>
+                                <span class="absolute inset-y-0 right-0 flex items-center pr-2.5 pointer-events-none text-slate-400 text-xs">
+                                    <i class="fa-solid fa-chevron-down"></i>
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Row 2: Levels Tick Boxes -->
+                        <div class="space-y-1.5 bg-slate-50/70 p-3 rounded-xl border border-slate-200 w-full">
+                            <div class="flex items-center justify-between">
+                                <span class="font-bold text-slate-700 text-xs flex items-center space-x-1">
+                                    <i class="fa-solid fa-signal text-indigo-600 text-[10px]"></i>
+                                    <span>Levels (Tick Boxes)</span>
+                                </span>
+                                <div class="space-x-2">
+                                    <button @click="selectedLevels = [...availableLevels]; currentPage=1;" class="text-[10px] text-indigo-600 hover:underline font-medium">Select All</button>
+                                    <span class="text-slate-300">|</span>
+                                    <button @click="selectedLevels = []; currentPage=1;" class="text-[10px] text-slate-500 hover:underline font-medium">Clear All</button>
+                                </div>
+                            </div>
+                            <div class="flex flex-row flex-wrap gap-3 p-1.5 bg-white rounded-xl border border-slate-200">
+                                <template x-for="lvl in availableLevels" :key="lvl">
+                                    <label class="flex items-center space-x-2 cursor-pointer py-1 px-2 hover:bg-slate-50 rounded-lg transition" x-data="{ lvl: lvl }">
+                                        <input type="checkbox" 
+                                               :value="lvl"
+                                               @change="toggleLevelSelection(lvl)"
+                                               :checked="selectedLevels.includes(lvl)"
+                                               class="w-3.5 h-3.5 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500">
+                                        <span class="px-2 py-0.5 rounded-md font-semibold text-[10px]" :class="getLevelBadgeClass(lvl)" x-text="lvl"></span>
+                                    </label>
+                                </template>
+                            </div>
+                        </div>
+
+                        <!-- Row 3: Strands Filter on Separate Line -->
+                        <div class="space-y-1.5 bg-slate-50/70 p-3 rounded-xl border border-slate-200 w-full">
+                            <div class="flex items-center justify-between">
+                                <span class="font-bold text-slate-700 text-xs flex items-center space-x-1">
+                                    <i class="fa-solid fa-compass text-indigo-600 text-[10px]"></i>
+                                    <span>Strands Filter</span>
+                                </span>
+                                <div class="space-x-2">
+                                    <button @click="selectedStrands = [...availableStrands]; currentPage=1;" class="text-[10px] text-indigo-600 hover:underline font-medium">Select All</button>
+                                    <span class="text-slate-300">|</span>
+                                    <button @click="selectedStrands = []; currentPage=1;" class="text-[10px] text-slate-500 hover:underline font-medium">Clear All</button>
+                                </div>
+                            </div>
+                            <div class="flex flex-row flex-wrap gap-1.5 max-h-32 overflow-y-auto p-1.5 bg-white rounded-xl border border-slate-200">
+                                <template x-for="strand in availableStrands" :key="strand">
+                                    <button @click="toggleStrandSelection(strand)"
+                                            :class="selectedStrands.includes(strand) ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'"
+                                            class="px-2.5 py-1 rounded-lg text-[10px] font-medium border transition text-left"
+                                            x-text="strand">
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
+
+                        <!-- Row 4: Sub-Strands Filter on Separate Line -->
+                        <div class="space-y-1.5 bg-slate-50/70 p-3 rounded-xl border border-slate-200 w-full">
+                            <div class="flex items-center justify-between">
+                                <span class="font-bold text-slate-700 text-xs flex items-center space-x-1">
+                                    <i class="fa-solid fa-tag text-indigo-600 text-[10px]"></i>
+                                    <span>Sub-Strands Filter</span>
+                                </span>
+                                <div class="space-x-2">
+                                    <button @click="selectedSubStrands = [...availableSubStrands]; currentPage=1;" class="text-[10px] text-indigo-600 hover:underline font-medium">Select All</button>
+                                    <span class="text-slate-300">|</span>
+                                    <button @click="selectedSubStrands = []; currentPage=1;" class="text-[10px] text-slate-500 hover:underline font-medium">Clear All</button>
+                                </div>
+                            </div>
+                            <div class="flex flex-row flex-wrap gap-1.5 max-h-32 overflow-y-auto p-1.5 bg-white rounded-xl border border-slate-200">
+                                <template x-for="sub in availableSubStrands" :key="sub">
+                                    <button @click="toggleSubStrandSelection(sub)"
+                                            :class="selectedSubStrands.includes(sub) ? 'bg-violet-600 text-white border-violet-600 shadow-sm' : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'"
+                                            class="px-2.5 py-1 rounded-lg text-[10px] font-medium border transition text-left"
+                                            x-text="sub">
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
+
+                    </div>
+                </section>
+
+                <!-- Technologies Purpose Statement & Big Ideas Banner -->
+                <template x-if="isTechnologiesSelected">
+                    <div class="bg-gradient-to-br from-indigo-900 via-indigo-800 to-violet-900 rounded-2xl p-5 sm:p-8 text-white shadow-xl space-y-6 border border-indigo-700">
+                        <div class="flex items-center space-x-3 pb-4 border-b border-indigo-700/60">
+                            <div class="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-md flex items-center justify-center text-white text-base shadow-inner shrink-0">
+                                <i class="fa-solid fa-microchip"></i>
+                            </div>
+                            <div>
+                                <h2 class="font-bold text-sm sm:text-lg tracking-wide">Technologies Purpose Statement</h2>
+                                <p class="text-[10px] sm:text-xs text-indigo-200">Technology and Innovation Curriculum Framework Overview</p>
+                            </div>
+                        </div>
+
+                        <p class="text-indigo-100 text-xs sm:text-sm leading-relaxed font-normal">
+                            The Technology and Innovation curriculum gives children and young people opportunities to learn with, through and about technology to be creative, critical thinkers who use ethical, sustainable, and innovative approaches to address real world challenges, bridging theory and practice while preparing them to thrive as adaptable, socially aware citizens in a dynamic, inclusive, and rapidly evolving world.
+                        </p>
+
+                        <div class="space-y-4 pt-2">
+                            <h3 class="font-bold text-xs sm:text-sm uppercase tracking-wider text-indigo-200 flex items-center space-x-2">
+                                <i class="fa-solid fa-lightbulb text-amber-300"></i>
+                                <span>Big Ideas</span>
+                            </h3>
+
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div class="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/10 space-y-2">
+                                    <div class="font-bold text-xs sm:text-sm text-amber-300 flex items-center space-x-1.5">
+                                        <span>1. Understanding Our World</span>
+                                    </div>
+                                    <p class="text-[11px] sm:text-xs text-indigo-100 leading-relaxed">
+                                        We live in a complex world full of physical, digital, social, and economic systems. Modern living requires critically evaluating the products and decisions that shape the world around them and understanding how data is created and used, and how systems recognise patterns.
+                                    </p>
+                                </div>
+
+                                <div class="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/10 space-y-2">
+                                    <div class="font-bold text-xs sm:text-sm text-emerald-300 flex items-center space-x-1.5">
+                                        <span>2. Innovation</span>
+                                    </div>
+                                    <p class="text-[11px] sm:text-xs text-indigo-100 leading-relaxed">
+                                        Engaging with our world requires the confident use of tools, materials, and processes to create products and services. Practical skills like designing, making, testing, and refining are essential to tackling real-world challenges.
+                                    </p>
+                                </div>
+
+                                <div class="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/10 space-y-2">
+                                    <div class="font-bold text-xs sm:text-sm text-cyan-300 flex items-center space-x-1.5">
+                                        <span>3. Shaping Our Future</span>
+                                    </div>
+                                    <p class="text-[11px] sm:text-xs text-indigo-100 leading-relaxed">
+                                        Every technological decision has economic, environmental, and social impacts. By critiquing the implications of technology, learners develop the capacity to make responsible choices and actively shape a more sustainable and equitable future.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- Cards View -->
+                <template x-if="currentView === 'cards'">
+                    <div class="space-y-8 w-full" x-data="{ area: '' }">
+                        <template x-if="filteredItems.length === 0">
+                            <div class="bg-white border border-slate-200 rounded-2xl p-12 text-center text-slate-500 shadow-sm">
+                                <i class="fa-regular fa-folder-open text-3xl mb-3 text-slate-300"></i>
+                                <p class="font-medium text-sm">No matching curriculum items found</p>
+                                <p class="text-[11px] text-slate-400 mt-1">Try broadening your search query or filter selections.</p>
+                            </div>
+                        </template>
+
+                        <!-- Group Cards by Curriculum Area -->
+                        <template x-for="area in activeCurriculumAreas" :key="area">
+                            <div class="space-y-4" x-data="{ area: area }">
+                                <div class="bg-gradient-to-r from-indigo-900 to-violet-900 text-white px-4 sm:px-5 py-3.5 rounded-2xl flex items-center justify-between shadow-sm">
+                                    <div class="flex items-center space-x-2.5">
+                                        <div class="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center">
+                                            <i class="fa-solid fa-layer-group text-white text-xs"></i>
+                                        </div>
+                                        <h3 class="font-bold text-xs sm:text-sm tracking-wide uppercase" x-text="area"></h3>
+                                    </div>
+                                    <span class="text-[10px] bg-white/20 px-2.5 py-1 rounded-lg font-medium" x-text="filteredItems.filter(i => i.curriculumArea === area).length + ' items'"></span>
+                                </div>
+
+                                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 w-full">
+                                    <template x-for="(item, index) in paginatedItemsByArea(area)" :key="index">
+                                        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition flex flex-col justify-between p-4 space-y-3" x-data="{ item: item }">
+                                            <div class="space-y-2.5">
+                                                <div class="flex items-center justify-between gap-2">
+                                                    <span class="px-2.5 py-1 rounded-md font-bold text-[10px] tracking-wide uppercase shadow-xs" :class="getLevelBadgeClass(item.level)" x-text="item.level || 'General'"></span>
+                                                    <div class="flex items-center space-x-1.5">
+                                                        <template x-if="item.notes && item.notes.trim().length > 0">
+                                                            <button @click="openDetail(item)" 
+                                                                    title="View Curriculum Notes"
+                                                                    class="px-2 py-0.5 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded-md text-[9px] font-semibold border border-amber-200 flex items-center space-x-1 transition shadow-xs">
+                                                                <i class="fa-solid fa-note-sticky text-amber-600"></i>
+                                                                <span>Notes</span>
+                                                            </button>
+                                                        </template>
+                                                        <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-medium text-[11px] truncate max-w-[150px]" x-text="item.strand || 'General Strand'"></span>
+                                                    </div>
+                                                </div>
+
+                                                <div class="text-[11px] text-slate-500 space-y-0.5">
+                                                    <div class="font-semibold text-slate-800" x-text="'Sub-Strand: ' + (item.subStrand || 'N/A')"></div>
+                                                    <template x-if="item.subSubStrand">
+                                                        <div class="text-[10px] text-indigo-600 font-medium" x-text="'Sub-Sub: ' + item.subSubStrand"></div>
+                                                    </template>
+                                                </div>
+
+                                                <div>
+                                                    <h4 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Understanding Statement</h4>
+                                                    <p class="text-slate-900 font-semibold text-[11px] sm:text-xs leading-snug" x-text="item.statement || 'No statement specified.'"></p>
+                                                </div>
+
+                                                <div class="bg-blue-50/60 border border-blue-100 rounded-xl p-2.5">
+                                                    <div class="flex items-center space-x-1.5 text-blue-800 font-semibold text-[11px] mb-1">
+                                                        <i class="fa-solid fa-brain"></i>
+                                                        <span>Know</span>
+                                                    </div>
+                                                    <ul class="list-disc list-inside space-y-1 text-[10px] sm:text-[11px] text-slate-700 leading-relaxed">
+                                                        <template x-for="bullet in parseDelimitedSentences(item.know)" :key="bullet">
+                                                            <li x-text="bullet"></li>
+                                                        </template>
+                                                        <template x-if="!item.know">
+                                                            <li class="text-slate-400 italic list-none">None specified.</li>
+                                                        </template>
+                                                    </ul>
+                                                </div>
+
+                                                <div class="bg-emerald-50/60 border border-emerald-100 rounded-xl p-2.5">
+                                                    <div class="flex items-center space-x-1.5 text-emerald-800 font-semibold text-[11px] mb-1">
+                                                        <i class="fa-solid fa-person-running"></i>
+                                                        <span>Do</span>
+                                                    </div>
+                                                    <ul class="list-disc list-inside space-y-1 text-[10px] sm:text-[11px] text-slate-700 leading-relaxed">
+                                                        <template x-for="bullet in parseDelimitedSentences(item.do)" :key="bullet">
+                                                            <li x-text="bullet"></li>
+                                                        </template>
+                                                        <template x-if="!item.do">
+                                                            <li class="text-slate-400 italic list-none">None specified.</li>
+                                                        </template>
+                                                    </ul>
+                                                </div>
+                                            </div>
+
+                                            <div class="pt-2.5 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400">
+                                                <span>Sub-Strand Record</span>
+                                                <button @click="openDetail(item)" class="text-indigo-600 font-medium hover:underline">View Full Details</button>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+
+                        <!-- Pagination Controls -->
+                        <template x-if="totalPages > 1">
+                            <div class="flex items-center justify-between bg-white px-5 py-3.5 rounded-2xl border border-slate-200 mt-6 shadow-sm w-full">
+                                <button @click="currentPage > 1 ? currentPage-- : null" 
+                                        :class="currentPage === 1 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-slate-100 text-slate-700'"
+                                        class="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold transition">
+                                    <i class="fa-solid fa-chevron-left mr-1"></i> Previous
+                                </button>
+                                <span class="text-xs text-slate-600">
+                                    Page <span class="font-bold text-slate-900" x-text="currentPage"></span> of <span class="font-bold text-slate-900" x-text="totalPages"></span>
+                                </span>
+                                <button @click="currentPage < totalPages ? currentPage++ : null" 
+                                        :class="currentPage === totalPages ? 'opacity-40 cursor-not-allowed' : 'hover:bg-slate-100 text-slate-700'"
+                                        class="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold transition">
+                                    Next <i class="fa-solid fa-chevron-right ml-1"></i>
+                                </button>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+
+                <!-- Table View (Collapsible Sections) -->
+                <template x-if="currentView === 'table'">
+                    <div class="space-y-8 w-full" x-data="{ area: '' }">
+                        <template x-for="area in activeCurriculumAreas" :key="area">
+                            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden w-full"
+                                 x-data="{ areaOpen: true, area: area }">
+                                <div @click="areaOpen = !areaOpen" 
+                                     class="bg-gradient-to-r from-indigo-900 to-violet-900 text-white px-4 sm:px-6 py-4 flex items-center justify-between cursor-pointer select-none hover:opacity-95 transition">
+                                    <div class="flex items-center space-x-2.5">
+                                        <div class="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center">
+                                            <i class="fa-solid fa-layer-group text-white text-xs"></i>
+                                        </div>
+                                        <h3 class="font-bold text-xs sm:text-sm tracking-wide uppercase" x-text="area"></h3>
+                                    </div>
+                                    <div class="flex items-center space-x-3">
+                                        <span class="text-[10px] bg-white/20 px-2.5 py-1 rounded-lg font-medium" x-text="filteredItems.filter(i => i.curriculumArea === area).length + ' items'"></span>
+                                        <i class="fa-solid fa-chevron-down text-xs transition-transform duration-200" :class="areaOpen ? 'rotate-180' : ''"></i>
+                                    </div>
+                                </div>
+
+                                <div x-show="areaOpen" x-transition class="divide-y divide-slate-200 w-full">
+                                    <!-- Group by Strand first, showing progression across Sub-Strands and Levels -->
+                                    <template x-for="strandGroup in [...new Set(filteredItems.filter(i => i.curriculumArea === area).map(i => i.strand || 'N/A'))]" :key="strandGroup">
+                                        <div class="w-full" x-data="{ strandOpen: true, strandGroup: strandGroup }">
+                                            <div @click="strandOpen = !strandOpen" 
+                                                 class="bg-slate-100 px-4 sm:px-6 py-3.5 border-y border-slate-200 flex items-center justify-between cursor-pointer select-none hover:bg-slate-200/60 transition">
+                                                <div class="flex items-center space-x-2.5">
+                                                    <i class="fa-solid fa-compass text-indigo-600 text-xs"></i>
+                                                    <span class="text-slate-900 font-bold text-xs sm:text-sm" x-text="'Strand: ' + strandGroup"></span>
+                                                </div>
+                                                <div class="flex items-center space-x-2">
+                                                    <span class="text-[10px] text-slate-500 font-medium" x-text="filteredItems.filter(i => i.curriculumArea === area && (i.strand || 'N/A') === strandGroup).length + ' records'"></span>
+                                                    <i class="fa-solid fa-chevron-down text-[10px] text-slate-500 transition-transform duration-200" :class="strandOpen ? 'rotate-180' : ''"></i>
+                                                </div>
+                                            </div>
+
+                                            <div x-show="strandOpen" x-transition class="p-4 sm:p-6 space-y-6 bg-white">
+                                                <!-- Group by Sub-Strand progression within Strand -->
+                                                <template x-for="subStrandGroup in [...new Set(filteredItems.filter(i => i.curriculumArea === area && (i.strand || 'N/A') === strandGroup).map(i => i.subStrand || 'N/A'))]" :key="subStrandGroup">
+                                                    <div class="border border-slate-200 rounded-2xl p-4 sm:p-5 space-y-4 bg-slate-50/50 shadow-xs" x-data="{ subOpen: true, subStrandGroup: subStrandGroup }">
+                                                        <div @click="subOpen = !subOpen" 
+                                                             class="flex items-center justify-between cursor-pointer select-none pb-3 border-b border-slate-200">
+                                                            <div class="flex items-center space-x-2">
+                                                                <span class="px-2.5 py-1 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-900 font-bold text-xs">
+                                                                    <i class="fa-solid fa-tag text-[10px] mr-1 text-indigo-600"></i>
+                                                                    <span x-text="'Sub-Strand: ' + subStrandGroup"></span>
+                                                                </span>
+                                                            </div>
+                                                            <div class="flex items-center space-x-3">
+                                                                <span class="text-[10px] text-indigo-700 font-semibold bg-indigo-100 px-2.5 py-1 rounded-md" x-text="filteredItems.filter(i => i.curriculumArea === area && (i.strand || 'N/A') === strandGroup && (i.subStrand || 'N/A') === subStrandGroup).length + ' level progressions'"></span>
+                                                                <i class="fa-solid fa-chevron-down text-xs text-indigo-800 transition-transform duration-200" :class="subOpen ? 'rotate-180' : ''"></i>
+                                                            </div>
+                                                        </div>
+
+                                                        <!-- Progression across levels for this sub-strand -->
+                                                        <div x-show="subOpen" x-transition class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-1">
+                                                            <template x-for="item in filteredItems.filter(i => i.curriculumArea === area && (i.strand || 'N/A') === strandGroup && (i.subStrand || 'N/A') === subStrandGroup).sort((a,b) => sortLevels(a.level, b.level))" :key="item.originalIndex">
+                                                                <div class="bg-white rounded-xl border border-slate-200 p-4 space-y-3 flex flex-col justify-between shadow-xs hover:border-indigo-300 transition" x-data="{ item: item }">
+                                                                    <div class="space-y-3">
+                                                                        <div class="flex items-center justify-between gap-2">
+                                                                            <span class="px-2.5 py-1 rounded-md font-bold text-[10px] uppercase shadow-xs" :class="getLevelBadgeClass(item.level)" x-text="item.level || 'General'"></span>
+                                                                            
+                                                                            <!-- Clickable Note Button if notes exist -->
+                                                                            <template x-if="item.notes && item.notes.trim().length > 0">
+                                                                                <button @click="openDetail(item)" 
+                                                                                        title="View Curriculum Notes"
+                                                                                        class="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded-lg text-[10px] font-semibold border border-amber-200 flex items-center space-x-1 transition shadow-xs">
+                                                                                    <i class="fa-solid fa-note-sticky text-amber-600"></i>
+                                                                                    <span>Notes</span>
+                                                                                </button>
+                                                                            </template>
+                                                                        </div>
+
+                                                                        <template x-if="item.subSubStrand">
+                                                                            <div class="text-[10px] text-indigo-600 font-semibold" x-text="'Focus: ' + item.subSubStrand"></div>
+                                                                        </template>
+
+                                                                        <div class="bg-blue-50/50 border border-blue-100 rounded-xl p-2.5 space-y-1">
+                                                                            <span class="text-[9px] font-bold text-blue-800 uppercase tracking-wider block">Understanding Statement</span>
+                                                                            <p class="text-slate-900 font-semibold text-xs leading-snug" x-text="item.statement || 'No statement specified.'"></p>
+                                                                        </div>
+
+                                                                        <div class="space-y-2">
+                                                                            <div class="bg-blue-50/40 border border-blue-100/70 rounded-lg p-2.5 space-y-1">
+                                                                                <div class="font-bold text-blue-900 text-[10px] uppercase flex items-center space-x-1">
+                                                                                    <i class="fa-solid fa-brain"></i>
+                                                                                    <span>Know</span>
+                                                                                </div>
+                                                                                <ul class="list-disc list-inside space-y-1 text-slate-700 text-[10px]">
+                                                                                    <template x-for="bullet in parseDelimitedSentences(item.know)" :key="bullet">
+                                                                                        <li class="leading-relaxed" x-text="bullet"></li>
+                                                                                    </template>
+                                                                                    <template x-if="!item.know">
+                                                                                        <li class="text-slate-400 italic list-none">—</li>
+                                                                                    </template>
+                                                                                </ul>
+                                                                            </div>
+
+                                                                            <div class="bg-emerald-50/40 border border-emerald-100/70 rounded-lg p-2.5 space-y-1">
+                                                                                <div class="font-bold text-emerald-900 text-[10px] uppercase flex items-center space-x-1">
+                                                                                    <i class="fa-solid fa-person-running"></i>
+                                                                                    <span>Do</span>
+                                                                                </div>
+                                                                                <ul class="list-disc list-inside space-y-1 text-slate-700 text-[10px]">
+                                                                                    <template x-for="bullet in parseDelimitedSentences(item.do)" :key="bullet">
+                                                                                        <li class="leading-relaxed" x-text="bullet"></li>
+                                                                                    </template>
+                                                                                    <template x-if="!item.do">
+                                                                                        <li class="text-slate-400 italic list-none">—</li>
+                                                                                    </template>
+                                                                                </ul>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    <div class="pt-2.5 border-t border-slate-100 flex items-center justify-end text-[10px]">
+                                                                        <button @click="openDetail(item)" class="text-indigo-600 font-semibold hover:underline">View Full Details</button>
+                                                                    </div>
+                                                                </div>
+                                                            </template>
+                                                        </div>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+
+                <!-- Visual Tree View (Level Top-Level Hierarchy) -->
+                <template x-if="currentView === 'tree'">
+                    <div class="space-y-4 w-full" x-data="{ lvl: '' }">
+                        <div class="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-sm space-y-4 w-full">
+                            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-3 border-b border-slate-100 gap-2">
+                                <div class="flex items-center space-x-2.5">
+                                    <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-md shrink-0">
+                                        <i class="fa-solid fa-sitemap text-xs"></i>
+                                    </div>
+                                    <div>
+                                        <h3 class="font-bold text-slate-900 text-xs sm:text-sm">Compact Level-First Curriculum Tree Navigator</h3>
+                                        <p class="text-[10px] text-slate-500">Click headers to expand Levels, Curriculum Areas, Strands, and Sub-Strands. Expand sub-strands to view Know & Do statements inline.</p>
+                                    </div>
+                                </div>
+                                <div class="text-[10px] font-medium text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-xl border border-indigo-100 shrink-0 self-start sm:self-auto">
+                                    Active Levels: <span class="font-bold" x-text="activeTreeLevels.length"></span>
+                                </div>
+                            </div>
+
+                            <div class="space-y-3 w-full">
+                                <template x-for="lvl in activeTreeLevels" :key="lvl">
+                                    <div class="border border-slate-200 rounded-xl bg-slate-50/40 overflow-hidden" 
+                                         x-data="{ levelOpen: false, lvl: lvl }">
+                                        
+                                        <!-- Level Node Header -->
+                                        <div @click="levelOpen = !levelOpen" 
+                                             class="flex items-center justify-between p-3 bg-gradient-to-r from-indigo-900 to-violet-900 text-white cursor-pointer select-none hover:opacity-95 transition">
+                                            <div class="flex items-center space-x-2.5">
+                                                <div class="w-5 h-5 rounded bg-white/20 flex items-center justify-center text-[10px]">
+                                                    <i class="fa-solid fa-chevron-right transition-transform duration-200" :class="levelOpen ? 'rotate-90' : ''"></i>
+                                                </div>
+                                                <span class="px-2 py-0.5 rounded font-bold text-[10px] shadow-xs" :class="getLevelBadgeClass(lvl)" x-text="lvl"></span>
+                                                <span class="font-bold text-xs uppercase tracking-wide">Level Header</span>
+                                            </div>
+                                            <span class="text-[10px] bg-white/20 px-2.5 py-0.5 rounded-md font-medium" x-text="filteredItems.filter(i => (i.level || 'N/A') === lvl).length + ' items'"></span>
+                                        </div>
+
+                                        <!-- Curriculum Areas Container inside Level -->
+                                        <div x-show="levelOpen" x-transition class="p-3 space-y-2.5 bg-white">
+                                            <template x-for="area in getTreeAreasForLevel(lvl)" :key="area">
+                                                <div class="border border-slate-200 rounded-lg bg-slate-50/60 overflow-hidden"
+                                                     x-data="{ areaOpen: false, area: area }">
+                                                    
+                                                    <!-- Curriculum Area Node Header -->
+                                                    <div @click="areaOpen = !areaOpen" 
+                                                         class="flex items-center justify-between p-2.5 bg-slate-100 cursor-pointer select-none hover:bg-slate-200/60 transition">
+                                                        <div class="flex items-center space-x-2">
+                                                            <div class="w-4 h-4 rounded bg-slate-200 flex items-center justify-center text-[9px] text-slate-600">
+                                                                <i class="fa-solid fa-chevron-right transition-transform duration-200" :class="areaOpen ? 'rotate-90' : ''"></i>
+                                                            </div>
+                                                            <i class="fa-solid fa-layer-group text-indigo-600 text-[10px]"></i>
+                                                            <span class="font-bold text-xs text-slate-800 uppercase" x-text="area"></span>
+                                                        </div>
+                                                        <span class="text-[9px] bg-slate-200 text-slate-700 px-2 py-0.5 rounded font-medium" x-text="filteredItems.filter(i => (i.level || 'N/A') === lvl && i.curriculumArea === area).length + ' items'"></span>
+                                                    </div>
+
+                                                    <!-- Strands Container inside Area -->
+                                                    <div x-show="areaOpen" x-transition class="p-2.5 space-y-2 bg-white border-t border-slate-200">
+                                                        <template x-for="strand in getTreeStrandsForLevelAndArea(lvl, area)" :key="strand">
+                                                            <div class="border border-slate-200 rounded-lg bg-slate-50/60 overflow-hidden"
+                                                                 x-data="{ strandOpen: false, strand: strand }">
+                                                                
+                                                                <!-- Strand Node Header -->
+                                                                <div @click="strandOpen = !strandOpen" 
+                                                                     class="flex items-center justify-between p-2 bg-indigo-50/60 cursor-pointer select-none hover:bg-indigo-100/60 transition">
+                                                                    <div class="flex items-center space-x-2">
+                                                                        <div class="w-3.5 h-3.5 rounded bg-indigo-200 flex items-center justify-center text-[8px] text-indigo-800">
+                                                                            <i class="fa-solid fa-chevron-right transition-transform duration-200" :class="strandOpen ? 'rotate-90' : ''"></i>
+                                                                        </div>
+                                                                        <i class="fa-solid fa-compass text-indigo-600 text-[10px]"></i>
+                                                                        <span class="font-bold text-xs text-indigo-950" x-text="strand"></span>
+                                                                    </div>
+                                                                    <span class="text-[9px] bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded font-medium" x-text="filteredItems.filter(i => (i.level || 'N/A') === lvl && i.curriculumArea === area && i.strand === strand).length + ' items'"></span>
+                                                                </div>
+
+                                                                <!-- Sub-Strands Grid Container -->
+                                                                <div x-show="strandOpen" x-transition class="p-2.5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5 bg-white border-t border-slate-200">
+                                                                    <template x-for="subObj in getTreeSubStrandsForLevelAreaAndStrand(lvl, area, strand)" :key="subObj.subStrand + subObj.originalIndex">
+                                                                        <div class="border border-slate-200 rounded-lg p-3 bg-slate-50 hover:border-indigo-300 transition flex flex-col justify-between space-y-2.5 shadow-xs"
+                                                                     x-data="{ expanded: false, subObj: subObj }">
+                                                                    <div class="space-y-1.5">
+                                                                        <div class="flex items-center justify-between">
+                                                                            <span class="px-2 py-0.5 rounded font-bold text-[9px] uppercase shadow-xs" :class="getLevelBadgeClass(subObj.level)" x-text="subObj.level"></span>
+                                                                            <div class="flex items-center space-x-1">
+                                                                                <template x-if="subObj.notes && subObj.notes.trim().length > 0">
+                                                                                    <button @click="openDetail(subObj)" 
+                                                                                            title="View Curriculum Notes"
+                                                                                            class="px-2 py-0.5 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded text-[9px] font-semibold border border-amber-200 flex items-center space-x-1 transition shadow-xs">
+                                                                                        <i class="fa-solid fa-note-sticky text-amber-600"></i>
+                                                                                        <span>Notes</span>
+                                                                                    </button>
+                                                                                </template>
+                                                                                <span class="text-[9px] text-slate-400 font-medium">Sub-Strand</span>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div class="font-bold text-slate-900 text-xs" x-text="subObj.subStrand"></div>
+                                                                        <template x-if="subObj.subSubStrand">
+                                                                            <div class="text-[10px] text-indigo-600 font-medium" x-text="'Focus: ' + subObj.subSubStrand"></div>
+                                                                        </template>
+                                                                        <p class="text-[10px] text-slate-600 leading-snug" x-text="subObj.statement"></p>
+                                                                    </div>
+
+                                                                    <!-- Inline Expandable Know & Do Content -->
+                                                                            <div x-show="expanded" x-transition class="space-y-2 pt-2 border-t border-slate-200">
+                                                                                <div class="bg-blue-50/70 border border-blue-100 rounded-lg p-2.5 space-y-1">
+                                                                                    <div class="font-bold text-blue-900 text-[10px] uppercase flex items-center space-x-1">
+                                                                                        <i class="fa-solid fa-brain"></i>
+                                                                                        <span>Know</span>
+                                                                                    </div>
+                                                                                    <ul class="list-disc list-inside space-y-0.5 text-slate-700 text-[10px]">
+                                                                                        <template x-for="bullet in parseDelimitedSentences(subObj.know)" :key="bullet">
+                                                                                            <li class="leading-relaxed" x-text="bullet"></li>
+                                                                                        </template>
+                                                                                        <template x-if="!subObj.know">
+                                                                                            <li class="text-slate-400 italic list-none">None specified.</li>
+                                                                                        </template>
+                                                                                    </ul>
+                                                                                </div>
+
+                                                                                <div class="bg-emerald-50/70 border border-emerald-100 rounded-lg p-2.5 space-y-1">
+                                                                                    <div class="font-bold text-emerald-900 text-[10px] uppercase flex items-center space-x-1">
+                                                                                        <i class="fa-solid fa-person-running"></i>
+                                                                                        <span>Do</span>
+                                                                                    </div>
+                                                                                    <ul class="list-disc list-inside space-y-0.5 text-slate-700 text-[10px]">
+                                                                                        <template x-for="bullet in parseDelimitedSentences(subObj.do)" :key="bullet">
+                                                                                            <li class="leading-relaxed" x-text="bullet"></li>
+                                                                                        </template>
+                                                                                        <template x-if="!subObj.do">
+                                                                                            <li class="text-slate-400 italic list-none">None specified.</li>
+                                                                                        </template>
+                                                                                    </ul>
+                                                                                </div>
+                                                                            </div>
+
+                                                                            <div class="pt-2 border-t border-slate-200 flex items-center justify-between text-[10px]">
+                                                                                <button @click="openDetail(subObj)" class="text-slate-500 hover:text-slate-800 font-medium underline">Modal View</button>
+                                                                                <button @click="expanded = !expanded" class="text-indigo-600 font-bold hover:underline flex items-center space-x-1">
+                                                                                    <span x-text="expanded ? 'Hide Know & Do' : 'Expand Know & Do'"></span>
+                                                                                    <i class="fa-solid fa-chevron-down text-[9px] transition-transform duration-200" :class="expanded ? 'rotate-180' : ''"></i>
+                                                                                </button>
+                                                                            </div>
+                                                                        </div>
+                                                                    </template>
+                                                                </div>
+                                                            </div>
+                                                        </template>
+                                                    </div>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- Understanding Matrix View -->
+                <template x-if="currentView === 'understanding_matrix'">
+                    <div class="space-y-8 w-full" x-data="{ area: '', matrixOrientation: 'level_rows' }">
+                        <template x-for="area in activeCurriculumAreas" :key="area">
+                            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-6 space-y-4 w-full" x-data="{ area: area }">
+                                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-3 border-b border-slate-100 gap-2">
+                                    <div class="flex items-center space-x-2.5">
+                                        <div class="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center text-white shrink-0">
+                                            <i class="fa-solid fa-layer-group text-xs"></i>
+                                        </div>
+                                        <div>
+                                            <h3 class="font-bold text-slate-900 text-xs sm:text-sm uppercase tracking-wide" x-text="area"></h3>
+                                            <p class="text-[10px] sm:text-[11px] text-slate-500">Toggle orientation to switch between Levels as rows/Strands as columns and vice versa. Click any sub-strand tag to inspect Know & Do statements.</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center space-x-3 shrink-0">
+                                        <button @click="matrixOrientation = matrixOrientation === 'level_rows' ? 'strand_rows' : 'level_rows'" 
+                                                class="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl font-semibold text-[10px] sm:text-xs transition flex items-center space-x-1.5 border border-indigo-200">
+                                            <i class="fa-solid fa-right-left"></i>
+                                            <span x-text="matrixOrientation === 'level_rows' ? 'Switch to Strands as Rows' : 'Switch to Levels as Rows'"></span>
+                                        </button>
+                                        <div class="text-[10px] sm:text-[11px] font-medium text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-xl border border-indigo-100">
+                                            Records in Area: <span class="font-bold" x-text="filteredItems.filter(i => i.curriculumArea === area).length"></span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="w-full overflow-x-auto">
+                                    <!-- Orientation 1: Levels as Rows, Strands as Columns -->
+                                    <table x-show="matrixOrientation === 'level_rows'" class="w-full border-collapse text-[10px] sm:text-[11px]">
+                                        <thead>
+                                            <tr class="bg-slate-50 border-b border-slate-200 text-slate-600">
+                                                <th class="p-3 font-bold uppercase tracking-wider border-r border-slate-200 w-28 sm:w-36 text-left">Level / Strand</th>
+                                                <template x-for="strand in getMatrixStrandsForArea(area)" :key="strand">
+                                                    <th class="p-3 font-bold text-center border-r border-slate-200 min-w-[240px]" x-text="strand"></th>
+                                                </template>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-slate-100">
+                                            <template x-for="level in getMatrixLevelsForArea(area)" :key="level">
+                                        <tr class="hover:bg-slate-50/50" x-data="{ level: level }">
+                                            <td class="p-3 bg-slate-50/80 border-r border-slate-200 align-top text-xs">
+                                                <span class="px-2.5 py-1 rounded-md font-bold text-[10px] uppercase shadow-xs inline-block" :class="getLevelBadgeClass(level)" x-text="level"></span>
+                                            </td>
+                                            <template x-for="strand in getMatrixStrandsForArea(area)" :key="strand">
+                                                <td class="p-3 border-r border-slate-100 align-top space-y-2.5 bg-white" x-data="{ strand: strand }">
+                                                    <template x-for="group in getUniqueUnderstandingGroupsForArea(area, level, strand)" :key="group.statement">
+                                                        <div class="space-y-1.5 pb-2.5 border-b border-slate-100 last:border-0 last:pb-0">
+                                                            <div class="flex items-start justify-between gap-1">
+                                                                <p class="text-slate-900 font-semibold leading-relaxed text-[10px] sm:text-[11px]" x-text="group.statement"></p>
+                                                                <template x-if="group.subStrandObjects.some(o => o.notes && o.notes.trim().length > 0)">
+                                                                    <button @click="openDetail(group.subStrandObjects.find(o => o.notes && o.notes.trim().length > 0))"
+                                                                            title="View Curriculum Notes"
+                                                                            class="px-1.5 py-0.5 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded text-[9px] font-semibold border border-amber-200 shrink-0 flex items-center space-x-1">
+                                                                        <i class="fa-solid fa-note-sticky text-amber-600"></i>
+                                                                        <span>Notes</span>
+                                                                    </button>
+                                                                </template>
+                                                            </div>
+                                                            <div class="flex flex-wrap gap-1 pt-0.5">
+                                                                <template x-for="itemObj in group.subStrandObjects" :key="itemObj.subStrand + itemObj.originalIndex">
+                                                                    <button @click="openDetail(itemObj)" 
+                                                                            title="Click to view Know & Do details"
+                                                                            class="px-2 py-0.5 rounded bg-indigo-50 hover:bg-indigo-600 text-indigo-700 hover:text-white font-semibold text-[9px] sm:text-[10px] border border-indigo-100 transition shadow-sm cursor-pointer text-left">
+                                                                        <i class="fa-solid fa-tag text-[8px] mr-1 opacity-70"></i>
+                                                                        <span x-text="itemObj.subStrand"></span>
+                                                                        <template x-if="itemObj.subSubStrand">
+                                                                            <span class="opacity-80 text-[8px]" x-text="' (' + itemObj.subSubStrand + ')'"></span>
+                                                                        </template>
+                                                                    </button>
+                                                                </template>
+                                                            </div>
+                                                        </div>
+                                                    </template>
+                                                    <template x-if="getUniqueUnderstandingGroupsForArea(area, level, strand).length === 0">
+                                                        <span class="text-slate-300 italic text-[11px] block text-center py-2">—</span>
+                                                    </template>
+                                                </td>
+                                            </template>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+
+                            <!-- Orientation 2: Strands as Rows, Levels as Columns -->
+                            <table x-show="matrixOrientation === 'strand_rows'" class="w-full border-collapse text-[10px] sm:text-[11px]" x-cloak>
+                                <thead>
+                                    <tr class="bg-slate-50 border-b border-slate-200 text-slate-600">
+                                        <th class="p-3 font-bold uppercase tracking-wider border-r border-slate-200 w-36 sm:w-48 text-left">Strand / Level</th>
+                                        <template x-for="level in getMatrixLevelsForArea(area)" :key="level">
+                                            <th class="p-3 font-bold text-center border-r border-slate-200 min-w-[240px]">
+                                                <span class="px-2 py-0.5 rounded-md font-bold text-[10px] uppercase shadow-xs inline-block" :class="getLevelBadgeClass(level)" x-text="level"></span>
+                                            </th>
+                                        </template>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100">
+                                    <template x-for="strand in getMatrixStrandsForArea(area)" :key="strand">
+                                        <tr class="hover:bg-slate-50/50" x-data="{ strand: strand }">
+                                            <td class="p-3 bg-slate-50/80 border-r border-slate-200 align-top text-xs font-bold text-slate-800" x-text="strand"></td>
+                                            <template x-for="level in getMatrixLevelsForArea(area)" :key="level">
+                                                <td class="p-3 border-r border-slate-100 align-top space-y-2.5 bg-white" x-data="{ level: level }">
+                                                    <template x-for="group in getUniqueUnderstandingGroupsForArea(area, level, strand)" :key="group.statement">
+                                                        <div class="space-y-1.5 pb-2.5 border-b border-slate-100 last:border-0 last:pb-0">
+                                                            <div class="flex items-start justify-between gap-1">
+                                                                <p class="text-slate-900 font-semibold leading-relaxed text-[10px] sm:text-[11px]" x-text="group.statement"></p>
+                                                                <template x-if="group.subStrandObjects.some(o => o.notes && o.notes.trim().length > 0)">
+                                                                    <button @click="openDetail(group.subStrandObjects.find(o => o.notes && o.notes.trim().length > 0))"
+                                                                            title="View Curriculum Notes"
+                                                                            class="px-1.5 py-0.5 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded text-[9px] font-semibold border border-amber-200 shrink-0 flex items-center space-x-1">
+                                                                        <i class="fa-solid fa-note-sticky text-amber-600"></i>
+                                                                        <span>Notes</span>
+                                                                    </button>
+                                                                </template>
+                                                            </div>
+                                                            <div class="flex flex-wrap gap-1 pt-0.5">
+                                                                <template x-for="itemObj in group.subStrandObjects" :key="itemObj.subStrand + itemObj.originalIndex">
+                                                                    <button @click="openDetail(itemObj)" 
+                                                                            title="Click to view Know & Do details"
+                                                                            class="px-2 py-0.5 rounded bg-indigo-50 hover:bg-indigo-600 text-indigo-700 hover:text-white font-semibold text-[9px] sm:text-[10px] border border-indigo-100 transition shadow-sm cursor-pointer text-left">
+                                                                        <i class="fa-solid fa-tag text-[8px] mr-1 opacity-70"></i>
+                                                                        <span x-text="itemObj.subStrand"></span>
+                                                                        <template x-if="itemObj.subSubStrand">
+                                                                            <span class="opacity-80 text-[8px]" x-text="' (' + itemObj.subSubStrand + ')'"></span>
+                                                                        </template>
+                                                                    </button>
+                                                                </template>
+                                                            </div>
+                                                        </div>
+                                                    </template>
+                                                    <template x-if="getUniqueUnderstandingGroupsForArea(area, level, strand).length === 0">
+                                                        <span class="text-slate-300 italic text-[11px] block text-center py-2">—</span>
+                                                    </template>
+                                                </td>
+                                            </template>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </template>
+
+        <!-- Know & Do Matrix View -->
+        <template x-if="currentView === 'knows_dos_matrix'">
+            <div class="space-y-8 w-full" x-data="{ area: '' }">
+                <template x-for="area in activeCurriculumAreas" :key="area">
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-6 space-y-4 w-full" x-data="{ area: area }">
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-3 border-b border-slate-100 gap-2">
+                            <div class="flex items-center space-x-2.5">
+                                <div class="w-7 h-7 rounded-lg bg-emerald-600 flex items-center justify-center text-white shrink-0">
+                                    <i class="fa-solid fa-list-check text-xs"></i>
+                                </div>
+                                <div>
+                                    <h3 class="font-bold text-slate-900 text-xs sm:text-sm uppercase tracking-wide" x-text="area"></h3>
+                                    <p class="text-[10px] sm:text-[11px] text-slate-500">Structured layout showing Strand, Level, Understanding Statement, Sub-Strands, and delimited bullet points for Know & Do.</p>
+                                </div>
+                            </div>
+                            <div class="text-[10px] sm:text-[11px] font-medium text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-100 shrink-0 self-start sm:self-auto">
+                                Total Records: <span class="font-bold" x-text="filteredItems.filter(i => i.curriculumArea === area).length"></span>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 w-full">
+                            <template x-for="(item, index) in sortedFilteredItems.filter(i => i.curriculumArea === area)" :key="index">
+                                <div class="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-sm space-y-3 hover:border-indigo-200 transition flex flex-col justify-between w-full" x-data="{ item: item }">
+                                    <div class="space-y-3">
+                                        <div class="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-slate-100">
+                                            <div class="flex items-center space-x-2">
+                                                <span class="px-2.5 py-1 rounded-lg bg-indigo-600 text-white font-bold text-[10px] sm:text-[11px] uppercase tracking-wider" x-text="item.strand || 'General Strand'"></span>
+                                                <span class="px-2.5 py-1 rounded-md font-bold text-[10px] uppercase shadow-xs" :class="getLevelBadgeClass(item.level)" x-text="item.level || 'General Level'"></span>
+                                            </div>
+                                            <template x-if="item.notes && item.notes.trim().length > 0">
+                                                <button @click="openDetail(item)" 
+                                                        title="View Curriculum Notes"
+                                                        class="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded-lg text-[10px] font-semibold border border-amber-200 flex items-center space-x-1 transition shadow-xs">
+                                                    <i class="fa-solid fa-note-sticky text-amber-600"></i>
+                                                    <span>Notes</span>
+                                                </button>
+                                            </template>
+                                        </div>
+
+                                        <div class="space-y-1.5">
+                                            <div>
+                                                <span class="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider">Understanding Statement</span>
+                                                <p class="text-slate-900 font-bold text-[11px] sm:text-xs leading-relaxed mt-0.5" x-text="item.statement || 'No statement specified.'"></p>
+                                            </div>
+                                            <div class="space-y-0.5 bg-slate-50 border border-slate-200 rounded-lg p-2 text-[10px] sm:text-[11px] text-slate-600">
+                                                <div><span class="font-semibold text-slate-700">Sub-Strand:</span> <span x-text="item.subStrand || 'N/A'"></span></div>
+                                                <template x-if="item.subSubStrand">
+                                                    <div class="text-[10px] text-indigo-600 font-medium"><span class="font-semibold text-slate-700">Sub-Sub:</span> <span x-text="item.subSubStrand"></span></div>
+                                                </template>
+                                            </div>
+                                        </div>
+
+                                        <div class="space-y-3 pt-1">
+                                            <div class="bg-blue-50/50 border border-blue-100 rounded-xl p-3.5 space-y-1.5">
+                                                <div class="flex items-center space-x-1.5 text-blue-900 font-bold text-[10px] sm:text-[11px] uppercase tracking-wide">
+                                                    <i class="fa-solid fa-brain"></i>
+                                                    <span>Know</span>
+                                                </div>
+                                                <ul class="list-disc list-inside space-y-1 text-[10px] sm:text-xs text-slate-700">
+                                                    <template x-for="bullet in parseDelimitedSentences(item.know)" :key="bullet">
+                                                        <li class="leading-relaxed" x-text="bullet"></li>
+                                                    </template>
+                                                    <template x-if="!item.know">
+                                                        <li class="text-slate-400 italic">No know statements specified.</li>
+                                                    </template>
+                                                </ul>
+                                            </div>
+
+                                            <div class="bg-emerald-50/50 border border-emerald-100 rounded-xl p-3.5 space-y-1.5">
+                                                <div class="flex items-center space-x-1.5 text-emerald-900 font-bold text-[10px] sm:text-[11px] uppercase tracking-wide">
+                                                    <i class="fa-solid fa-person-running"></i>
+                                                    <span>Do</span>
+                                                </div>
+                                                <ul class="list-disc list-inside space-y-1 text-[10px] sm:text-xs text-slate-700">
+                                                    <template x-for="bullet in parseDelimitedSentences(item.do)" :key="bullet">
+                                                        <li class="leading-relaxed" x-text="bullet"></li>
+                                                    </template>
+                                                    <template x-if="!item.do">
+                                                        <li class="text-slate-400 italic">No do statements specified.</li>
+                                                    </template>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </template>
+
+    </div>
+</template>
+</main>
+
+    <!-- Detail Modal -->
+    <div x-show="modalOpen" 
+         x-cloak
+         class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto">
+        <div @click.away="modalOpen = false" 
+             class="bg-white rounded-2xl border border-slate-200 max-w-xl w-full p-4 sm:p-6 shadow-2xl space-y-4 my-auto max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
+            <div class="flex items-start justify-between">
+                <div>
+                    <span class="px-2.5 py-1 rounded-md font-bold text-[10px] uppercase shadow-xs inline-block mb-1.5" :class="getLevelBadgeClass(activeItem.level)" x-text="activeItem.level"></span>
+                    <h3 class="text-sm sm:text-base font-bold text-slate-900" x-text="activeItem.curriculumArea"></h3>
+                </div>
+                <button @click="modalOpen = false" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition shrink-0">
+                    <i class="fa-solid fa-xmark text-sm"></i>
+                </button>
+            </div>
+
+            <div class="space-y-3 text-xs">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                    <div>
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Strand</span>
+                        <p class="font-semibold text-slate-800" x-text="activeItem.strand"></p>
+                    </div>
+                    <div>
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Sub-Strand</span>
+                        <p class="font-semibold text-slate-800" x-text="activeItem.subStrand"></p>
+                        <template x-if="activeItem.subSubStrand">
+                            <p class="text-[10px] text-indigo-600 font-medium mt-0.5" x-text="'Sub-Sub: ' + activeItem.subSubStrand"></p>
+                        </template>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Understanding Statement</h4>
+                    <p class="text-slate-900 font-medium text-xs leading-relaxed" x-text="activeItem.statement"></p>
+                </div>
+
+                <template x-if="activeItem.notes">
+                    <div class="bg-amber-50/70 border border-amber-200 rounded-xl p-3">
+                        <h4 class="text-[10px] font-bold text-amber-800 uppercase tracking-wider mb-1 flex items-center space-x-1.5">
+                            <i class="fa-solid fa-note-sticky"></i>
+                            <span>Curriculum Notes</span>
+                        </h4>
+                        <div class="text-slate-700 text-xs leading-relaxed space-y-2">
+                            <template x-for="noteBlock in parseFormattedNotes(activeItem.notes)" :key="noteBlock.heading">
+                                <div class="space-y-1">
+                                    <template x-if="noteBlock.heading">
+                                        <div class="font-bold text-amber-900 text-[11px] underline" x-text="noteBlock.heading"></div>
+                                    </template>
+                                    <ul class="list-disc list-inside space-y-0.5 text-slate-700 pl-1">
+                                        <template x-for="bullet in noteBlock.bullets" :key="bullet">
+                                            <li class="leading-relaxed" x-text="bullet"></li>
+                                        </template>
+                                    </ul>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+
+                <div class="bg-blue-50/60 border border-blue-100 rounded-xl p-3">
+                    <h4 class="text-[10px] font-bold text-blue-800 uppercase tracking-wider mb-1.5 flex items-center space-x-1.5">
+                        <i class="fa-solid fa-brain"></i>
+                        <span>Know</span>
+                    </h4>
+                    <ul class="list-disc list-inside space-y-1 text-slate-700 text-xs">
+                        <template x-for="bullet in parseDelimitedSentences(activeItem.know)" :key="bullet">
+                            <li class="leading-relaxed" x-text="bullet"></li>
+                        </template>
+                        <template x-if="!activeItem.know">
+                            <li class="text-slate-400 italic list-none">None specified.</li>
+                        </template>
+                    </ul>
+                </div>
+
+                <div class="bg-emerald-50/60 border border-emerald-100 rounded-xl p-3">
+                    <h4 class="text-[10px] font-bold text-emerald-800 uppercase tracking-wider mb-1.5 flex items-center space-x-1.5">
+                        <i class="fa-solid fa-person-running"></i>
+                        <span>Do</span>
+                    </h4>
+                    <ul class="list-disc list-inside space-y-1 text-slate-700 text-xs">
+                        <template x-for="bullet in parseDelimitedSentences(activeItem.do)" :key="bullet">
+                            <li class="leading-relaxed" x-text="bullet"></li>
+                        </template>
+                        <template x-if="!activeItem.do">
+                            <li class="text-slate-400 italic list-none">None specified.</li>
+                        </template>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="pt-3 border-t border-slate-100 flex justify-end">
+                <button @click="modalOpen = false" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold transition">
+                    Close Details
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function curriculumApp() {
+            return {
+                loading: true,
+                error: null,
+                rawData: [],
+                parsedData: [],
+                currentView: 'cards',
+                searchQuery: '',
+                
+                selectedCurriculumAreas: [],
+                selectedLevels: [],
+                selectedStrands: [],
+                selectedSubStrands: [],
+
+                currentPage: 1,
+                pageSize: 12,
+                modalOpen: false,
+                activeItem: {},
+
+                get isTechnologiesSelected() {
+                    return this.selectedCurriculumAreas.length === 1 && 
+                           this.selectedCurriculumAreas[0].toLowerCase().includes('technolog');
+                },
+
+                getLevelBadgeClass(levelStr) {
+                    if (!levelStr) return 'bg-slate-100 text-slate-700 border border-slate-300';
+                    const clean = levelStr.toLowerCase().trim();
+                    const rank = this.getLevelRank(levelStr);
+
+                    if (rank === 0 || clean.includes('early') || clean.includes('foundation') || clean.includes('prep') || clean.includes('reception')) {
+                        return 'bg-amber-100 text-amber-800 border border-amber-300';
+                    }
+                    if (rank === 1 || clean.includes('first') || clean.includes('1')) {
+                        return 'bg-emerald-100 text-emerald-800 border border-emerald-300';
+                    }
+                    if (rank === 2 || clean.includes('second') || clean.includes('2')) {
+                        return 'bg-teal-100 text-teal-800 border border-teal-300';
+                    }
+                    if (rank === 3 || clean.includes('third') || clean.includes('3')) {
+                        return 'bg-cyan-100 text-cyan-800 border border-cyan-300';
+                    }
+                    if (rank === 4 || clean.includes('fourth') || clean.includes('4')) {
+                        return 'bg-blue-100 text-blue-800 border border-blue-300';
+                    }
+                    if (rank === 5 || clean.includes('fifth') || clean.includes('5')) {
+                        return 'bg-indigo-100 text-indigo-800 border border-indigo-300';
+                    }
+                    if (rank >= 6 || clean.includes('sixth') || clean.includes('senior') || clean.includes('advanced')) {
+                        return 'bg-violet-100 text-violet-800 border border-violet-300';
+                    }
+                    return 'bg-slate-100 text-slate-700 border border-slate-300';
+                },
+
+                get singleSelectedCurriculumArea() {
+                    if (this.selectedCurriculumAreas.length === 1) {
+                        return this.selectedCurriculumAreas[0];
+                    }
+                    return 'ALL';
+                },
+
+                updateCurriculumAreaSelection(val) {
+                    if (val === 'ALL') {
+                        this.selectedCurriculumAreas = [...this.availableCurriculumAreas];
+                    } else {
+                        this.selectedCurriculumAreas = [val];
+                    }
+                    this.currentPage = 1;
+                },
+
+                toggleLevelSelection(lvl) {
+                    const idx = this.selectedLevels.indexOf(lvl);
+                    if (idx > -1) {
+                        this.selectedLevels.splice(idx, 1);
+                    } else {
+                        this.selectedLevels.push(lvl);
+                    }
+                    this.currentPage = 1;
+                },
+
+                toggleStrandSelection(strand) {
+                    const idx = this.selectedStrands.indexOf(strand);
+                    if (idx > -1) {
+                        this.selectedStrands.splice(idx, 1);
+                    } else {
+                        this.selectedStrands.push(strand);
+                    }
+                    this.currentPage = 1;
+                },
+
+                toggleSubStrandSelection(sub) {
+                    const idx = this.selectedSubStrands.indexOf(sub);
+                    if (idx > -1) {
+                        this.selectedSubStrands.splice(idx, 1);
+                    } else {
+                        this.selectedSubStrands.push(sub);
+                    }
+                    this.currentPage = 1;
+                },
+
+                async initData() {
+                    this.loading = true;
+                    this.error = null;
+                    const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTh6rBdn3GxwpFQtVpUwNr6ACdipDW-eDR7Diu9l_3DOkQ0hsTdMIMp8D0BETaGKxYk9pY5HM6ZbkWN/pub?output=csv';
+                    
+                    try {
+                        const response = await fetch(csvUrl);
+                        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                        const csvText = await response.text();
+                        this.parseCSV(csvText);
+                        
+                        this.selectedCurriculumAreas = [...this.availableCurriculumAreas];
+                        this.selectedLevels = [...this.availableLevels];
+                        this.selectedStrands = [...this.availableStrands];
+                        this.selectedSubStrands = [...this.availableSubStrands];
+
+                        this.loading = false;
+                    } catch (err) {
+                        console.error("Fetch error:", err);
+                        this.error = "Could not fetch curriculum data directly due to network constraints or CORS policy. Please verify the CSV link or your connection.";
+                        this.loading = false;
+                    }
+                },
+
+                parseCSV(text) {
+                    let lines = [];
+                    let row = [''];
+                    let inQuotes = false;
+
+                    for (let i = 0; i < text.length; i++) {
+                        let c = text[i];
+                        let nextC = text[i + 1];
+
+                        if (c === '"') {
+                            if (inQuotes && nextC === '"') {
+                                row[row.length - 1] += '"';
+                                i++;
+                            } else {
+                                inQuotes = !inQuotes;
+                            }
+                        } else if (c === ',' && !inQuotes) {
+                            row.push('');
+                        } else if ((c === '\r' || c === '\n') && !inQuotes) {
+                            if (c === '\r' && nextC === '\n') { i++; }
+                            lines.push(row);
+                            row = [''];
+                        } else {
+                            row[row.length - 1] += c;
+                        }
+                    }
+                    if (row.length > 1 || row[0] !== '') {
+                        lines.push(row);
+                    }
+
+                    if (lines.length < 2) {
+                        this.parsedData = [];
+                        return;
+                    }
+
+                    let rawHeaders = lines[0].map(h => h.trim().toLowerCase());
+                    
+                    let areaIdx = rawHeaders.findIndex(h => h.includes('area') || h.includes('domain') || h.includes('subject') || h.includes('category'));
+                    let levelIdx = rawHeaders.findIndex(h => h.includes('level') || h.includes('grade') || h.includes('stage'));
+                    let strandIdx = rawHeaders.findIndex(h => h.includes('strand') && !h.includes('sub'));
+                    let subStrandIdx = rawHeaders.findIndex(h => h.includes('sub-strand') || (h.includes('sub') && h.includes('strand')));
+                    let subSubStrandIdx = rawHeaders.findIndex(h => h.includes('sub-sub') || h.includes('subsub') || h.includes('elaboration') || h.includes('focus'));
+                    let statementIdx = rawHeaders.findIndex(h => h.includes('statement') || h.includes('understanding') || h.includes('overarching'));
+                    let knowIdx = rawHeaders.findIndex(h => h.includes('know') || h.includes('knowledge') || h.includes('content'));
+                    let doIdx = rawHeaders.findIndex(h => h.includes('do') || h.includes('skill') || h.includes('practice'));
+                    let notesIdx = rawHeaders.findIndex(h => h.includes('note') || h.includes('comment') || h.includes('remark'));
+
+                    if (areaIdx === -1) areaIdx = 0;
+                    if (levelIdx === -1) levelIdx = 1;
+                    if (strandIdx === -1) strandIdx = 2;
+                    if (subStrandIdx === -1) subStrandIdx = 3;
+                    if (statementIdx === -1) statementIdx = 4;
+                    if (knowIdx === -1) knowIdx = 5;
+                    if (doIdx === -1) doIdx = 6;
+
+                    let items = [];
+                    for (let i = 1; i < lines.length; i++) {
+                        let cols = lines[i];
+                        if (cols.length < 2) continue;
+
+                        items.push({
+                            originalIndex: i - 1,
+                            curriculumArea: (cols[areaIdx] || '').trim() || 'General Area',
+                            level: (cols[levelIdx] || '').trim() || 'General Level',
+                            strand: (cols[strandIdx] || '').trim() || 'General Strand',
+                            subStrand: (cols[subStrandIdx] || '').trim() || 'General Sub-Strand',
+                            subSubStrand: subSubStrandIdx !== -1 ? (cols[subSubStrandIdx] || '').trim() : '',
+                            statement: (cols[statementIdx] || '').trim(),
+                            know: (cols[knowIdx] || '').trim(),
+                            do: (cols[doIdx] || '').trim(),
+                            notes: notesIdx !== -1 ? (cols[notesIdx] || '').trim() : ''
+                        });
+                    }
+
+                    this.parsedData = items;
+                },
+
+                parseDelimitedSentences(text) {
+                    if (!text) return [];
+                    return text
+                        .split('.')
+                        .map(s => s.trim())
+                        .filter(s => s.length > 0)
+                        .map(s => s.endsWith('.') ? s : s + '.');
+                },
+
+                parseFormattedNotes(text) {
+                    if (!text) return [];
+                    const triggerPhrases = ['includes but not limited to', 'inludes but not limited to', 'includes', 'excludes', 'notes'];
+                    let lowerText = text.toLowerCase();
+                    
+                    let matches = [];
+                    triggerPhrases.forEach(phrase => {
+                        let idx = lowerText.indexOf(phrase);
+                        while (idx !== -1) {
+                            matches.push({ index: idx, phrase: text.substr(idx, phrase.length) });
+                            idx = lowerText.indexOf(phrase, idx + 1);
+                        }
+                    });
+
+                    if (matches.length === 0) {
+                        return [{
+                            heading: '',
+                            bullets: text.split('.').map(s => s.trim()).filter(s => s.length > 0).map(s => s.endsWith('.') ? s : s + '.')
+                        }];
+                    }
+
+                    matches.sort((a, b) => a.index - b.index);
+                    
+                    let sections = [];
+                    let firstIdx = matches[0].index;
+                    if (firstIdx > 0) {
+                        let introPart = text.substring(0, firstIdx).trim();
+                        if (introPart) {
+                            sections.push({
+                                heading: '',
+                                bullets: introPart.split('.').map(s => s.trim()).filter(s => s.length > 0).map(s => s.endsWith('.') ? s : s + '.')
+                            });
+                        }
+                    }
+
+                    for (let i = 0; i < matches.length; i++) {
+                        let currentMatch = matches[i];
+                        let startPos = currentMatch.index + currentMatch.phrase.length;
+                        let endPos = (i < matches.length - 1) ? matches[i + 1].index : text.length;
+                        let content = text.substring(startPos, endPos).trim();
+                        if (content.startsWith(':')) content = content.substring(1).trim();
+                        if (content.startsWith('–')) content = content.substring(1).trim();
+
+                        let bullets = content
+                            .split('.')
+                            .map(s => s.trim())
+                            .filter(s => s.length > 0)
+                            .map(s => s.endsWith('.') ? s : s + '.');
+
+                        sections.push({
+                            heading: currentMatch.phrase.charAt(0).toUpperCase() + currentMatch.phrase.slice(1),
+                            bullets: bullets.length > 0 ? bullets : [content]
+                        });
+                    }
+
+                    return sections;
+                },
+
+                getLevelRank(levelStr) {
+                    if (!levelStr) return 999;
+                    const clean = levelStr.toLowerCase().trim();
+                    
+                    if (clean.includes('early') || clean.includes('level 0') || clean.includes('foundation') || clean.includes('reception') || clean.includes('prep')) return 0;
+                    if (clean.includes('first') || clean.includes('level 1') || clean.includes('grade 1') || clean.includes('year 1')) return 1;
+                    if (clean.includes('second') || clean.includes('level 2') || clean.includes('grade 2') || clean.includes('year 2')) return 2;
+                    if (clean.includes('third') || clean.includes('level 3') || clean.includes('grade 3') || clean.includes('year 3')) return 3;
+                    if (clean.includes('fourth') || clean.includes('level 4') || clean.includes('grade 4') || clean.includes('year 4')) return 4;
+                    if (clean.includes('fifth') || clean.includes('level 5') || clean.includes('grade 5') || clean.includes('year 5')) return 5;
+                    if (clean.includes('sixth') || clean.includes('level 6') || clean.includes('grade 6') || clean.includes('year 6')) return 6;
+
+                    const matchedNum = clean.match(/([0-9]+)/);
+                    if (matchedNum) {
+                        return parseInt(matchedNum[1], 10);
+                    }
+                    return 100;
+                },
+
+                sortLevels(a, b) {
+                    const rankA = this.getLevelRank(a);
+                    const rankB = this.getLevelRank(b);
+                    if (rankA !== rankB) {
+                        return rankA - rankB;
+                    }
+                    return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+                },
+
+                toggleSelection(list, item) {
+                    const idx = list.indexOf(item);
+                    if (idx > -1) {
+                        list.splice(idx, 1);
+                    } else {
+                        list.push(item);
+                    }
+                    this.currentPage = 1;
+                },
+
+                get availableCurriculumAreas() {
+                    return [...new Set(this.parsedData.map(item => item.curriculumArea).filter(Boolean))].sort();
+                },
+
+                get activeCurriculumAreas() {
+                    return this.availableCurriculumAreas.filter(area => this.selectedCurriculumAreas.includes(area));
+                },
+
+                get availableLevels() {
+                    let subset = this.parsedData;
+                    if (this.selectedCurriculumAreas.length > 0) {
+                        subset = subset.filter(item => this.selectedCurriculumAreas.includes(item.curriculumArea));
+                    }
+                    return [...new Set(subset.map(item => item.level).filter(Boolean))].sort((a, b) => this.sortLevels(a, b));
+                },
+
+                get activeTreeLevels() {
+                    return [...new Set(this.filteredItems.map(item => item.level || 'N/A'))].sort((a, b) => this.sortLevels(a, b));
+                },
+
+                get availableStrands() {
+                    let subset = this.parsedData;
+                    if (this.selectedCurriculumAreas.length > 0) {
+                        subset = subset.filter(item => this.selectedCurriculumAreas.includes(item.curriculumArea));
+                    }
+                    if (this.selectedLevels.length > 0) {
+                        subset = subset.filter(item => this.selectedLevels.includes(item.level));
+                    }
+                    return [...new Set(subset.map(item => item.strand).filter(Boolean))].sort();
+                },
+
+                get availableSubStrands() {
+                    let subset = this.parsedData;
+                    if (this.selectedCurriculumAreas.length > 0) {
+                        subset = subset.filter(item => this.selectedCurriculumAreas.includes(item.curriculumArea));
+                    }
+                    if (this.selectedLevels.length > 0) {
+                        subset = subset.filter(item => this.selectedLevels.includes(item.level));
+                    }
+                    if (this.selectedStrands.length > 0) {
+                        subset = subset.filter(item => this.selectedStrands.includes(item.strand));
+                    }
+                    return [...new Set(subset.map(item => item.subStrand).filter(Boolean))].sort();
+                },
+
+                get filteredItems() {
+                    let q = this.searchQuery.toLowerCase();
+                    return this.parsedData.filter(item => {
+                        let matchesSearch = !q || 
+                            item.statement.toLowerCase().includes(q) || 
+                            item.know.toLowerCase().includes(q) || 
+                            item.do.toLowerCase().includes(q) || 
+                            item.strand.toLowerCase().includes(q) ||
+                            item.subStrand.toLowerCase().includes(q) ||
+                            (item.subSubStrand && item.subSubStrand.toLowerCase().includes(q)) ||
+                            item.curriculumArea.toLowerCase().includes(q) ||
+                            item.level.toLowerCase().includes(q);
+
+                        let matchesArea = this.selectedCurriculumAreas.length === 0 || this.selectedCurriculumAreas.includes(item.curriculumArea);
+                        let matchesLevel = this.selectedLevels.length === 0 || this.selectedLevels.includes(item.level);
+                        let matchesStrand = this.selectedStrands.length === 0 || this.selectedStrands.includes(item.strand);
+                        let matchesSubStrand = this.selectedSubStrands.length === 0 || this.selectedSubStrands.includes(item.subStrand);
+
+                        return matchesSearch && matchesArea && matchesLevel && matchesStrand && matchesSubStrand;
+                    });
+                },
+
+                get sortedFilteredItems() {
+                    return [...this.filteredItems].sort((a, b) => this.sortLevels(a.level, b.level));
+                },
+
+                getMatrixStrandsForArea(area) {
+                    let subset = this.filteredItems.filter(i => i.curriculumArea === area);
+                    return [...new Set(subset.map(i => i.strand).filter(Boolean))].sort();
+                },
+
+                getMatrixLevelsForArea(area) {
+                    let subset = this.filteredItems.filter(i => i.curriculumArea === area);
+                    return [...new Set(subset.map(i => i.level).filter(Boolean))].sort((a, b) => this.sortLevels(a, b));
+                },
+
+                getTreeAreasForLevel(lvl) {
+                    let subset = this.filteredItems.filter(i => (i.level || 'N/A') === lvl);
+                    return [...new Set(subset.map(i => i.curriculumArea).filter(Boolean))].sort();
+                },
+
+                getTreeStrandsForLevelAndArea(lvl, area) {
+                    let subset = this.filteredItems.filter(i => (i.level || 'N/A') === lvl && i.curriculumArea === area);
+                    return [...new Set(subset.map(i => i.strand).filter(Boolean))].sort();
+                },
+
+                getTreeSubStrandsForLevelAreaAndStrand(lvl, area, strand) {
+                    let subset = this.filteredItems.filter(i => (i.level || 'N/A') === lvl && i.curriculumArea === area && i.strand === strand);
+                    let map = {};
+                    subset.forEach(item => {
+                        let key = (item.subStrand || '') + '___' + (item.subSubStrand || '') + '___' + (item.level || '');
+                        if (!map[key]) {
+                            map[key] = item;
+                        }
+                    });
+                    return Object.values(map);
+                },
+
+                getUniqueUnderstandingGroupsForArea(area, level, strand) {
+                    let subset = this.filteredItems.filter(i => i.curriculumArea === area && i.level === level && i.strand === strand);
+
+                    let map = {};
+                    subset.forEach(item => {
+                        let stmt = item.statement || 'No understanding statement.';
+                        if (!map[stmt]) {
+                            map[stmt] = [];
+                        }
+                        if (item.subStrand) {
+                            if (!map[stmt].some(existing => existing.subStrand === item.subStrand && existing.subSubStrand === item.subSubStrand)) {
+                                map[stmt].push(item);
+                            }
+                        }
+                    });
+
+                    return Object.keys(map).map(stmt => ({
+                        statement: stmt,
+                        subStrandObjects: map[stmt]
+                    }));
+                },
+
+                get totalPages() {
+                    return Math.ceil(this.filteredItems.length / this.pageSize) || 1;
+                },
+
+                paginatedItemsByArea(area) {
+                    let items = this.sortedFilteredItems.filter(i => i.curriculumArea === area);
+                    let start = (this.currentPage - 1) * this.pageSize;
+                    return items.slice(start, start + this.pageSize);
+                },
+
+                resetFilters() {
+                    this.searchQuery = '';
+                    this.selectedCurriculumAreas = [...this.availableCurriculumAreas];
+                    this.selectedLevels = [...this.availableLevels];
+                    this.selectedStrands = [...this.availableStrands];
+                    this.selectedSubStrands = [...this.availableSubStrands];
+                    this.currentPage = 1;
+                },
+
+                openDetail(item) {
+                    this.activeItem = item;
+                    this.modalOpen = true;
+                },
+
+                exportCurrentViewPDF() {
+                    window.print();
+                }
+            }
+        }
+    </script>
+</body>
+</html>
