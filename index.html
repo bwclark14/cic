@@ -30,40 +30,25 @@
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-        /* Summary table: fits the screen width; stacks on phones */
-        .summary-table { font-size: 12px; line-height: 1.35; }
-        .summary-table.is-dense { font-size: 11px; }
-        .summary-table ul, .summary-table p, .summary-table li { overflow-wrap: anywhere; }
-        .summary-table .badge { font-size: 10px; }
+        /* Fit-to-width tables (Summary, Understanding Matrix, Know & Do): no sideways scrolling; stack on phones */
+        .fit-table { font-size: 12px; line-height: 1.35; }
+        .fit-table.is-dense, .fit-table.is-dense .text-xs { font-size: 11px; }
+        .fit-table ul, .fit-table p, .fit-table li, .fit-table button, .fit-table span { overflow-wrap: anywhere; }
+        .fit-table .badge { font-size: 10px; }
         @media (max-width: 767px) {
-            .summary-table, .summary-table thead, .summary-table tbody, .summary-table tr,
-            .summary-table th.summary-area, .summary-table td { display: block; width: 100%; }
-            .summary-table thead { display: none; }
-            .summary-table tbody tr { border-bottom: 8px solid #f1f5f9; }
-            .summary-table th.summary-area { border-right: 0; padding: .6rem .8rem; }
-            .summary-table td { border-right: 0; border-top: 1px solid #f1f5f9; padding: .65rem .8rem; font-size: 13px; }
-            .summary-table td.summary-empty { display: none; }
-            .summary-table td::before {
+            .fit-table, .fit-table thead, .fit-table tbody, .fit-table tr,
+            .fit-table th.fit-area, .fit-table td { display: block; width: 100%; }
+            .fit-table thead { display: none; }
+            .fit-table tbody tr { border-bottom: 8px solid #f1f5f9; }
+            .fit-table th.fit-area { border-right: 0; padding: .6rem .8rem; }
+            .fit-table td { border-right: 0; border-top: 1px solid #f1f5f9; padding: .65rem .8rem; font-size: 13px; }
+            .fit-table td .text-xs { font-size: 12px; }
+            .fit-table td.fit-empty { display: none; }
+            .fit-table td::before {
                 content: attr(data-level); display: inline-block; margin-bottom: .4rem; padding: .1rem .5rem;
                 border-radius: .4rem; background: #eef2ff; color: #3730a3; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em;
             }
         }
-
-        /* Hierarchy tree: elbow connectors between parent and child nodes */
-        .tree { --indent: 1.1rem; --gap: 1.35rem; --line: #cbd5e1; }
-        .tree-children { position: relative; margin-left: var(--indent); padding-left: var(--gap); }
-        .tree-node { position: relative; padding-top: .6rem; }
-        .tree-node::before {            /* vertical trunk */
-            content: ""; position: absolute; left: calc(-1 * var(--gap)); top: 0; bottom: 0;
-            border-left: 2px solid var(--line);
-        }
-        .tree-node:last-child::before { bottom: auto; height: 1.95rem; }
-        .tree-node::after {             /* horizontal elbow */
-            content: ""; position: absolute; left: calc(-1 * var(--gap)); top: 1.95rem; width: var(--gap);
-            border-top: 2px solid var(--line);
-        }
-        .tree-label { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: .75rem; text-align: left; border-radius: .75rem; padding: .55rem .8rem; }
-        @media (max-width: 640px) { .tree { --indent: .45rem; --gap: 1rem; } }
         @media print {
             body { background: #fff !important; }
             header, .no-print { display: none !important; }
@@ -312,11 +297,11 @@
                         </div>
 
                         <div class="panel overflow-hidden">
-                            <table class="summary-table w-full table-fixed border-collapse break-words"
+                            <table class="fit-table w-full table-fixed border-collapse break-words"
                                    :class="summary.levels.length > 5 ? 'is-dense' : ''">
                                 <thead>
                                     <tr class="border-b border-slate-200 bg-slate-50">
-                                        <th class="summary-area w-28 border-r border-slate-200 bg-slate-50 p-2 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500 lg:w-36 lg:p-3">Curriculum area</th>
+                                        <th class="fit-area w-28 border-r border-slate-200 bg-slate-50 p-2 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500 lg:w-36 lg:p-3">Curriculum area</th>
                                         <template x-for="lv in summary.levels" :key="lv">
                                             <th class="border-r border-slate-100 p-2 text-left lg:p-3">
                                                 <span class="badge" :class="levelClass(lv)" x-text="lv"></span>
@@ -327,10 +312,10 @@
                                 <tbody class="divide-y divide-slate-100">
                                     <template x-for="row in summary.rows" :key="row.area">
                                         <tr class="align-top">
-                                            <th scope="row" class="summary-area border-r border-slate-200 bg-slate-50 p-2 text-left text-[11px] font-bold uppercase tracking-wide text-indigo-900 lg:p-3 lg:text-xs" x-text="row.area"></th>
+                                            <th scope="row" class="fit-area border-r border-slate-200 bg-slate-50 p-2 text-left text-[11px] font-bold uppercase tracking-wide text-indigo-900 lg:p-3 lg:text-xs" x-text="row.area"></th>
                                             <template x-for="lv in summary.levels" :key="lv">
-                                                <td class="summary-cell border-r border-slate-100 p-2 lg:p-3"
-                                                    :data-level="lv" :class="!row.cells[lv].statements.length && 'summary-empty'">
+                                                <td class="fit-cell border-r border-slate-100 p-2 lg:p-3"
+                                                    :data-level="lv" :class="!row.cells[lv].statements.length && 'fit-empty'">
                                                     <template x-if="row.cells[lv].statements.length">
                                                         <div class="space-y-3">
                                                             <!-- per-cell drill-down control -->
@@ -574,14 +559,15 @@
                                     <h3 class="text-sm font-bold uppercase tracking-wide" x-text="m.area"></h3>
                                     <span class="shrink-0 rounded-lg bg-white/20 px-2.5 py-1 text-xs font-medium" x-text="m.count + ' records'"></span>
                                 </div>
-                                <div class="overflow-x-auto">
-                                    <table class="w-full min-w-max border-collapse">
+                                <div>
+                                    <table class="fit-table w-full table-fixed border-collapse break-words"
+                                           :class="(levelsAsRows ? m.strands : m.levels).length > 5 ? 'is-dense' : ''">
                                         <thead>
                                             <tr class="border-b border-slate-200 bg-slate-50">
-                                                <th class="sticky left-0 z-10 w-32 min-w-[8rem] border-r border-slate-200 bg-slate-50 p-3 text-left text-xs font-bold uppercase tracking-wider text-slate-500"
+                                                <th class="fit-area w-24 border-r border-slate-200 bg-slate-50 p-2 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500 lg:w-32 lg:p-3"
                                                     x-text="levelsAsRows ? 'Level / Strand' : 'Strand / Level'"></th>
                                                 <template x-for="col in (levelsAsRows ? m.strands : m.levels)" :key="col">
-                                                    <th class="min-w-[16rem] border-r border-slate-100 p-3 text-left align-bottom">
+                                                    <th class="border-r border-slate-100 p-2 text-left align-bottom lg:p-3">
                                                         <span x-show="!levelsAsRows" class="badge" :class="levelClass(col)" x-text="col"></span>
                                                         <span x-show="levelsAsRows" class="text-xs font-bold text-slate-700" x-text="col"></span>
                                                     </th>
@@ -591,12 +577,12 @@
                                         <tbody class="divide-y divide-slate-100">
                                             <template x-for="row in (levelsAsRows ? m.levels : m.strands)" :key="row">
                                                 <tr class="align-top">
-                                                    <th scope="row" class="sticky left-0 z-10 w-32 min-w-[8rem] border-r border-slate-200 bg-slate-50 p-3 text-left">
+                                                    <th scope="row" class="fit-area border-r border-slate-200 bg-slate-50 p-2 text-left lg:p-3">
                                                         <span x-show="levelsAsRows" class="badge" :class="levelClass(row)" x-text="row"></span>
                                                         <span x-show="!levelsAsRows" class="text-xs font-bold text-slate-800" x-text="row"></span>
                                                     </th>
                                                     <template x-for="col in (levelsAsRows ? m.strands : m.levels)" :key="col">
-                                                        <td class="space-y-3 border-r border-slate-100 p-3">
+                                                        <td class="fit-cell space-y-3 border-r border-slate-100 p-2 lg:p-3" :data-level="col" :class="!matrixCell(m, row, col).length && 'fit-empty'">
                                                             <template x-for="(g, gi) in matrixCell(m, row, col)" :key="gi">
                                                                 <div class="space-y-1.5 border-b border-slate-100 pb-3 last:border-0 last:pb-0">
                                                                     <div class="flex items-start justify-between gap-2">
@@ -643,14 +629,15 @@
                                     <h3 class="text-sm font-bold uppercase tracking-wide" x-text="m.area"></h3>
                                     <span class="shrink-0 rounded-lg bg-white/20 px-2.5 py-1 text-xs font-medium" x-text="m.count + ' records'"></span>
                                 </div>
-                                <div class="overflow-x-auto">
-                                    <table class="w-full min-w-max border-collapse">
+                                <div>
+                                    <table class="fit-table w-full table-fixed border-collapse break-words"
+                                           :class="(kdLevelsAsRows ? m.strands : m.levels).length > 5 ? 'is-dense' : ''">
                                         <thead>
                                             <tr class="border-b border-slate-200 bg-slate-50">
-                                                <th class="sticky left-0 z-10 w-32 min-w-[8rem] border-r border-slate-200 bg-slate-50 p-3 text-left text-xs font-bold uppercase tracking-wider text-slate-500"
+                                                <th class="fit-area w-24 border-r border-slate-200 bg-slate-50 p-2 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500 lg:w-32 lg:p-3"
                                                     x-text="kdLevelsAsRows ? 'Level / Strand' : 'Strand / Level'"></th>
                                                 <template x-for="col in (kdLevelsAsRows ? m.strands : m.levels)" :key="col">
-                                                    <th class="min-w-[20rem] border-r border-slate-100 p-3 text-left align-bottom">
+                                                    <th class="border-r border-slate-100 p-2 text-left align-bottom lg:p-3">
                                                         <span x-show="!kdLevelsAsRows" class="badge" :class="levelClass(col)" x-text="col"></span>
                                                         <span x-show="kdLevelsAsRows" class="text-xs font-bold text-slate-700" x-text="col"></span>
                                                     </th>
@@ -660,12 +647,12 @@
                                         <tbody class="divide-y divide-slate-100">
                                             <template x-for="row in (kdLevelsAsRows ? m.levels : m.strands)" :key="row">
                                                 <tr class="align-top">
-                                                    <th scope="row" class="sticky left-0 z-10 w-32 min-w-[8rem] border-r border-slate-200 bg-slate-50 p-3 text-left">
+                                                    <th scope="row" class="fit-area border-r border-slate-200 bg-slate-50 p-2 text-left lg:p-3">
                                                         <span x-show="kdLevelsAsRows" class="badge" :class="levelClass(row)" x-text="row"></span>
                                                         <span x-show="!kdLevelsAsRows" class="text-xs font-bold text-slate-800" x-text="row"></span>
                                                     </th>
                                                     <template x-for="col in (kdLevelsAsRows ? m.strands : m.levels)" :key="col">
-                                                        <td class="space-y-3 border-r border-slate-100 p-3">
+                                                        <td class="fit-cell space-y-3 border-r border-slate-100 p-2 lg:p-3" :data-level="col" :class="!kdItems(m, row, col).length && 'fit-empty'">
                                                             <template x-for="it in kdItems(m, row, col)" :key="it.id">
                                                                 <div class="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-2.5">
                                                                     <div class="flex items-start justify-between gap-2">
