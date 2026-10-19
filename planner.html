@@ -27,6 +27,42 @@
             .menu-item { @apply flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm font-medium text-slate-700 hover:bg-slate-50; }
             .area-bar { @apply flex items-center justify-between gap-3 rounded-2xl bg-gradient-to-r from-indigo-900 to-violet-900 px-4 py-3 text-white; }
         }
+        /* ---- Mind map ---- */
+        .mm-scroll { overflow-x: auto; }
+        .mm { position: relative; display: block; min-width: 100%; padding: 20px 16px; --mm-line: #cbd5e1; }
+        .mm.is-radial { display: inline-block; min-width: 100%; }
+        .mm-svg { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; }
+        .mm-svg path { fill: none; stroke-linecap: round; }
+        .mm-grid { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 18px; }
+        .mm.is-radial .mm-grid { flex-direction: row; align-items: center; justify-content: center; gap: 28px; }
+        .mm-side { display: flex; flex-direction: column; gap: 22px; }
+        .mm.is-radial .mm-left .mm-group { flex-direction: row-reverse; }
+        .mm.is-radial .mm-left .mm-cluster { flex-direction: row-reverse; }
+        .mm.is-radial .mm-left .mm-leaves { align-items: flex-end; text-align: right; }
+        .mm-group { display: flex; flex-direction: column; gap: 10px; align-items: stretch; }
+        .mm.is-radial .mm-group { flex-direction: row; align-items: center; gap: 24px; }
+        .mm-clusters { display: flex; flex-direction: column; gap: 12px; }
+        .mm-cluster { display: flex; flex-direction: column; gap: 6px; }
+        .mm.is-radial .mm-cluster { flex-direction: row; align-items: center; gap: 22px; }
+        .mm-leaves { display: flex; flex-direction: column; gap: 6px; }
+        .mm:not(.is-radial) .mm-clusters, .mm:not(.is-radial) .mm-leaves { margin-left: 14px; padding-left: 12px; border-left: 2px solid var(--c, #cbd5e1); }
+        .mm-core { border-radius: 9999px; padding: 18px 22px; max-width: 220px; text-align: center; font-weight: 800; font-size: 14px; line-height: 1.25; color: #fff; background: linear-gradient(135deg, #312e81, #6d28d9); box-shadow: 0 6px 18px rgba(79,70,229,.3); }
+        .mm:not(.is-radial) .mm-core { max-width: none; border-radius: 18px; }
+        .mm-core small { display: block; margin-top: 4px; font-size: 11px; font-weight: 500; opacity: .8; }
+        .mm-hub { border-radius: 9999px; padding: 8px 16px; font-size: 13px; font-weight: 800; color: #fff; background: var(--c); text-align: center; white-space: nowrap; align-self: flex-start; }
+        .mm.is-radial .mm-hub { align-self: center; }
+        .mm-hub small { font-weight: 600; opacity: .85; margin-left: 4px; }
+        .mm-strand { border-radius: 10px; padding: 6px 10px; font-size: 11.5px; font-weight: 700; line-height: 1.25; color: var(--c); background: var(--bg); border: 1.5px solid var(--c); max-width: 150px; align-self: flex-start; }
+        .mm.is-radial .mm-strand { align-self: center; flex: none; width: 118px; max-width: 118px; }
+        .mm-strand small { display: block; font-weight: 500; opacity: .75; }
+        .mm-leaf { border-radius: 8px; padding: 5px 9px; font-size: 11.5px; line-height: 1.35; color: #1e293b; background: #fff; border: 1px solid var(--c); border-left-width: 4px; width: 100%; max-width: 300px; }
+        .mm.is-radial .mm-leaf { width: 190px; }
+        .mm-leaf .lv { display: inline-block; margin-right: 5px; border-radius: 4px; padding: 0 4px; font-size: 9.5px; font-weight: 700; color: var(--c); background: var(--bg); }
+        .mm:not(.is-radial) .mm-core { order: -1; }
+        .mm:not(.is-radial) .mm-side { margin-left: 14px; padding-left: 12px; border-left: 2px solid #c7d2fe; }
+        .mm-u { --c: #b45309; --bg: #fffbeb; }
+        .mm-k { --c: #0369a1; --bg: #f0f9ff; }
+        .mm-d { --c: #047857; --bg: #ecfdf5; }
     </style>
     <style>
         .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -105,6 +141,7 @@
                 <button data-act="tab" data-tab="browse" class="tab flex shrink-0 items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-semibold transition"><i class="fa-solid fa-magnifying-glass"></i>Browse curriculum</button>
                 <button data-act="tab" data-tab="plan" class="tab flex shrink-0 items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-semibold transition"><i class="fa-solid fa-pen-to-square"></i>My plan <span id="cntPlan" class="rounded-full bg-white/70 px-1.5 text-[11px] text-indigo-700"></span></button>
                 <button data-act="tab" data-tab="coverage" class="tab flex shrink-0 items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-semibold transition"><i class="fa-solid fa-chart-simple"></i>Coverage</button>
+                <button data-act="tab" data-tab="mindmap" class="tab flex shrink-0 items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-semibold transition"><i class="fa-solid fa-diagram-project"></i>Mind map</button>
             </nav>
         </div>
     </header>
@@ -154,7 +191,7 @@
         strandMenu: false, limit: PAGE, detailsOpen: true,
         plans: [], currentId: null,
         openRecs: new Set(),
-        covAll: false,
+        covAll: false, mmDetail: 'full',
         menu: null
     };
     window.__planner = state;   // handy for debugging in the console
@@ -808,6 +845,115 @@
         toast('Plan imported');
     }
 
+
+    /* =====================================================================
+       Mind map tab: Understand / Know / Do branches around the plan
+       ===================================================================== */
+    const MM_KINDS = { u: { label: 'Understand', icon: 'fa-lightbulb' }, k: { label: 'Know', icon: 'fa-brain' }, d: { label: 'Do', icon: 'fa-hand' } };
+    const MM_LINE = { u: '#d97706', k: '#0284c7', d: '#059669' };
+
+    // Builds { u|k|d: [{ label, leaves: [{ text, levels[] }] }] } from the ticked statements of a plan.
+    function buildMindMapData(p) {
+        const sels = selectionsSorted(p).filter(s => onCount(s) > 0);
+        const multi = new Set(sels.map(s => s.area)).size > 1;
+        const out = { u: new Map(), k: new Map(), d: new Map() };
+        const put = (kind, s, text) => {
+            const label = (multi ? s.area + ' · ' : '') + (s.strand || 'General');
+            if (!out[kind].has(label)) out[kind].set(label, new Map());
+            const leaves = out[kind].get(label);
+            if (!leaves.has(text)) leaves.set(text, new Set());
+            leaves.get(text).add(s.level);
+        };
+        sels.forEach(s => {
+            if (str(s.statement).trim()) put('u', s, s.statement.trim());
+            s.knows.filter(x => x.on).forEach(x => put('k', s, x.text));
+            s.dos.filter(x => x.on).forEach(x => put('d', s, x.text));
+        });
+        const res = {};
+        Object.keys(out).forEach(k => {
+            res[k] = [...out[k].entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([label, leaves]) => ({
+                label, leaves: [...leaves.entries()].map(([text, lv]) => ({ text, levels: [...lv].sort(compareLevels) }))
+            }));
+        });
+        return { data: res, records: sels.length, multi };
+    }
+
+    const mmRadial = () => window.innerWidth >= 1100;
+
+    function renderMindMap() {
+        const p = plan();
+        const { data, records } = buildMindMapData(p);
+        const count = k => data[k].reduce((n, c) => n + c.leaves.length, 0);
+        const full = state.mmDetail === 'full';
+
+        if (!records) {
+            $('#app').innerHTML = `<div class="panel p-10 text-center text-slate-500"><i class="fa-solid fa-diagram-project mb-3 text-3xl text-slate-300"></i>
+                <p class="font-medium text-slate-700">No mind map yet</p><p class="mx-auto mt-1 max-w-sm text-xs">Tick Know and Do statements in your plan and the Understand, Know and Do overview will be drawn here.</p>
+                <button data-act="tab" data-tab="browse" class="btn mt-4 border-indigo-600 bg-indigo-600 text-white hover:bg-indigo-700">Browse curriculum</button></div>`;
+            return;
+        }
+
+        const group = k => {
+            const clusters = data[k];
+            if (!clusters.length) return '';
+            const body = clusters.map((c, ci) => {
+                const sid = `s-${k}-${ci}`;
+                const leaves = full ? `<div class="mm-leaves">${c.leaves.map((l, li) =>
+                    `<div class="mm-leaf" data-mm-id="l-${k}-${ci}-${li}" data-mm-parent="${sid}" data-mm-kind="${k}" data-mm-w="1.6">${
+                        l.levels.length ? `<span class="lv">${l.levels.map(x => esc(levelShort(x))).join('/')}</span>` : ''}${esc(l.text)}</div>`).join('')}</div>` : '';
+                return `<div class="mm-cluster"><div class="mm-strand" data-mm-id="${sid}" data-mm-parent="h-${k}" data-mm-kind="${k}" data-mm-w="2.4">${esc(c.label)}<small>${c.leaves.length} statement${c.leaves.length === 1 ? '' : 's'}</small></div>${leaves}</div>`;
+            }).join('');
+            return `<div class="mm-group mm-${k}"><div class="mm-hub" data-mm-id="h-${k}" data-mm-parent="core" data-mm-kind="${k}" data-mm-w="3.6"><i class="fa-solid ${MM_KINDS[k].icon} mr-1.5"></i>${MM_KINDS[k].label}<small>${count(k)}</small></div><div class="mm-clusters">${body}</div></div>`;
+        };
+
+        const toggle = `<div class="inline-flex rounded-xl bg-slate-200/70 p-1">${[['full', 'With statements'], ['strands', 'Strands only']].map(([v, l]) =>
+            `<button data-act="mm-detail" data-v="${v}" class="rounded-lg px-3 py-1.5 text-xs font-semibold transition ${state.mmDetail === v ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}">${l}</button>`).join('')}</div>`;
+        const legend = ['u', 'k', 'd'].map(k => `<span class="mm-${k} inline-flex items-center gap-1.5 text-xs font-semibold" style="color:var(--c)"><span class="h-2.5 w-2.5 rounded-full" style="background:var(--c)"></span>${MM_KINDS[k].label} (${count(k)})</span>`).join('');
+
+        $('#app').innerHTML = `<section class="space-y-4">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="flex flex-wrap items-center gap-x-4 gap-y-1">${legend}</div>
+                ${toggle}
+            </div>
+            <div class="panel mm-scroll"><div id="mm" class="mm${mmRadial() ? ' is-radial' : ''}">
+                <svg class="mm-svg" id="mmSvg" aria-hidden="true"></svg>
+                <div class="mm-grid">
+                    <div class="mm-side mm-left">${group('u')}</div>
+                    <div><div class="mm-core" data-mm-id="core">${esc(p.title || 'Untitled plan')}<small>${records} record${records === 1 ? '' : 's'} planned</small></div></div>
+                    <div class="mm-side mm-right">${group('k')}${group('d')}</div>
+                </div></div></div>
+            <p class="text-center text-xs text-slate-400">Built from the statements ticked in your plan. Understand comes from each planned record's understanding statement.</p>
+        </section>`;
+        drawMindMap();
+    }
+
+    function drawMindMap() {
+        const mm = $('#mm'), svg = $('#mmSvg');
+        if (!mm || !svg) return;
+        const radial = mmRadial();
+        mm.classList.toggle('is-radial', radial);
+        svg.innerHTML = '';
+        if (!radial) { svg.style.display = 'none'; return; }
+        svg.style.display = '';
+        const box = mm.getBoundingClientRect();
+        svg.setAttribute('width', mm.scrollWidth); svg.setAttribute('height', mm.scrollHeight);
+        const rect = el => { const r = el.getBoundingClientRect(); return { l: r.left - box.left, r: r.right - box.left, y: r.top - box.top + r.height / 2 }; };
+        let paths = '';
+        $$('[data-mm-parent]', mm).forEach(el => {
+            const par = mm.querySelector(`[data-mm-id="${el.dataset.mmParent}"]`);
+            if (!par) return;
+            const a = rect(par), b = rect(el);
+            const right = (b.l + b.r) / 2 > (a.l + a.r) / 2;
+            const x1 = right ? a.r : a.l, x2 = right ? b.l : b.r, mx = (x1 + x2) / 2;
+            paths += `<path d="M${x1.toFixed(1)},${a.y.toFixed(1)} C${mx.toFixed(1)},${a.y.toFixed(1)} ${mx.toFixed(1)},${b.y.toFixed(1)} ${x2.toFixed(1)},${b.y.toFixed(1)}" stroke="${MM_LINE[el.dataset.mmKind]}" stroke-width="${el.dataset.mmW}" opacity="0.65"/>`;
+        });
+        svg.innerHTML = paths;
+    }
+    window.addEventListener('resize', () => {
+        if (state.tab !== 'mindmap' || !$('#mm')) return;
+        clearTimeout(drawMindMap.t); drawMindMap.t = setTimeout(drawMindMap, 80);
+    });
+
     /* =====================================================================
        Rendering + events
        ===================================================================== */
@@ -820,6 +966,7 @@
                 <p class="mb-4 text-red-600">${esc(state.error)}</p><button data-act="retry" class="btn border-red-600 bg-red-600 text-white hover:bg-red-700">Try again</button></div>`;
         } else if (state.tab === 'browse') renderBrowse();
         else if (state.tab === 'plan') renderPlan();
+        else if (state.tab === 'mindmap') renderMindMap();
         else renderCoverage();
     }
 
@@ -904,6 +1051,7 @@
             case 'expand-recs': Object.keys(plan().selections).forEach(k => state.openRecs.add(k)); renderPlan(); break;
             case 'collapse-recs': state.openRecs.clear(); renderPlan(); break;
 
+            case 'mm-detail': state.mmDetail = el.dataset.v; renderMindMap(); break;
             case 'cov-scope': state.covAll = el.dataset.v === 'true'; renderCoverage(); break;
 
             case 'notes': if (item) notesModal(item); break;
