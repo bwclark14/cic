@@ -375,9 +375,15 @@
                                                                                     <p class="font-semibold leading-snug text-slate-900" x-text="g.statement"></p>
                                                                                     <template x-for="it in g.items" :key="it.id">
                                                                                         <div class="space-y-1.5">
-                                                                                            <button @click="openDetail(it)" class="text-left text-[11px] font-semibold text-indigo-600 hover:underline">
-                                                                                                <i class="fa-solid fa-tag mr-1 text-[9px] opacity-70"></i><span x-text="it.subStrand"></span><span x-show="it.subSubStrand" x-text="' (' + it.subSubStrand + ')'"></span>
-                                                                                            </button>
+                                                                                            <div class="flex flex-wrap items-center justify-between gap-1.5">
+                                                                                                <button @click="openDetail(it)" class="text-left text-[11px] font-semibold text-indigo-600 hover:underline">
+                                                                                                    <i class="fa-solid fa-tag mr-1 text-[9px] opacity-70"></i><span x-text="it.subStrand"></span><span x-show="it.subSubStrand" x-text="' (' + it.subSubStrand + ')'"></span>
+                                                                                                </button>
+                                                                                                <div class="flex flex-wrap items-center gap-1.5">
+                                                                                                    <button x-show="it.hasNotes" @click="openNotes(it)" class="btn-note"><i class="fa-solid fa-note-sticky"></i>Notes</button>
+                                                                                                    <button x-show="it.hasMore" @click="openMore(it)" class="btn-more"><i class="fa-solid fa-circle-info"></i>More info</button>
+                                                                                                </div>
+                                                                                            </div>
                                                                                             <div class="space-y-1.5 text-xs" x-html="knowDoHtml(it)"></div>
                                                                                         </div>
                                                                                     </template>
