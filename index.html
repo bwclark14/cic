@@ -5,27 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>KDU Explorer</title>
 
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="tailwind.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
-    <script>
-        tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'] } } } };
-    </script>
 
-    <style type="text/tailwindcss">
-        @layer components {
-            .badge  { @apply inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide; }
-            .chip   { @apply rounded-full border px-3 py-1.5 text-xs font-medium transition text-left; }
-            .btn    { @apply inline-flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-semibold transition; }
-            .btn-more { @apply inline-flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2 py-1 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100; }
-            .btn-note { @apply inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800 transition hover:bg-amber-100; }
-            .panel  { @apply rounded-2xl border border-slate-200 bg-white shadow-sm; }
-            .eyebrow { @apply text-[11px] font-bold uppercase tracking-wider text-slate-400; }
-            .area-bar { @apply flex items-center justify-between gap-3 rounded-2xl bg-gradient-to-r from-indigo-900 to-violet-900 px-4 py-3 text-white; }
-        }
-    </style>
     <style>
         [x-cloak] { display: none !important; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
