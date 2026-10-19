@@ -29,6 +29,41 @@
         [x-cloak] { display: none !important; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* Summary table: fits the screen width; stacks on phones */
+        .summary-table { font-size: 12px; line-height: 1.35; }
+        .summary-table.is-dense { font-size: 11px; }
+        .summary-table ul, .summary-table p, .summary-table li { overflow-wrap: anywhere; }
+        .summary-table .badge { font-size: 10px; }
+        @media (max-width: 767px) {
+            .summary-table, .summary-table thead, .summary-table tbody, .summary-table tr,
+            .summary-table th.summary-area, .summary-table td { display: block; width: 100%; }
+            .summary-table thead { display: none; }
+            .summary-table tbody tr { border-bottom: 8px solid #f1f5f9; }
+            .summary-table th.summary-area { border-right: 0; padding: .6rem .8rem; }
+            .summary-table td { border-right: 0; border-top: 1px solid #f1f5f9; padding: .65rem .8rem; font-size: 13px; }
+            .summary-table td.summary-empty { display: none; }
+            .summary-table td::before {
+                content: attr(data-level); display: inline-block; margin-bottom: .4rem; padding: .1rem .5rem;
+                border-radius: .4rem; background: #eef2ff; color: #3730a3; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em;
+            }
+        }
+
+        /* Hierarchy tree: elbow connectors between parent and child nodes */
+        .tree { --indent: 1.1rem; --gap: 1.35rem; --line: #cbd5e1; }
+        .tree-children { position: relative; margin-left: var(--indent); padding-left: var(--gap); }
+        .tree-node { position: relative; padding-top: .6rem; }
+        .tree-node::before {            /* vertical trunk */
+            content: ""; position: absolute; left: calc(-1 * var(--gap)); top: 0; bottom: 0;
+            border-left: 2px solid var(--line);
+        }
+        .tree-node:last-child::before { bottom: auto; height: 1.95rem; }
+        .tree-node::after {             /* horizontal elbow */
+            content: ""; position: absolute; left: calc(-1 * var(--gap)); top: 1.95rem; width: var(--gap);
+            border-top: 2px solid var(--line);
+        }
+        .tree-label { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: .75rem; text-align: left; border-radius: .75rem; padding: .55rem .8rem; }
+        @media (max-width: 640px) { .tree { --indent: .45rem; --gap: 1rem; } }
         @media print {
             body { background: #fff !important; }
             header, .no-print { display: none !important; }
@@ -276,13 +311,14 @@
                             </div>
                         </div>
 
-                        <div class="panel overflow-x-auto">
-                            <table class="w-full min-w-max border-collapse">
+                        <div class="panel overflow-hidden">
+                            <table class="summary-table w-full table-fixed border-collapse break-words"
+                                   :class="summary.levels.length > 5 ? 'is-dense' : ''">
                                 <thead>
                                     <tr class="border-b border-slate-200 bg-slate-50">
-                                        <th class="sticky left-0 z-10 w-44 min-w-[11rem] border-r border-slate-200 bg-slate-50 p-3 text-left text-xs font-bold uppercase tracking-wider text-slate-500">Curriculum area</th>
+                                        <th class="summary-area w-28 border-r border-slate-200 bg-slate-50 p-2 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500 lg:w-36 lg:p-3">Curriculum area</th>
                                         <template x-for="lv in summary.levels" :key="lv">
-                                            <th class="min-w-[19rem] border-r border-slate-100 p-3 text-left">
+                                            <th class="border-r border-slate-100 p-2 text-left lg:p-3">
                                                 <span class="badge" :class="levelClass(lv)" x-text="lv"></span>
                                             </th>
                                         </template>
@@ -291,13 +327,14 @@
                                 <tbody class="divide-y divide-slate-100">
                                     <template x-for="row in summary.rows" :key="row.area">
                                         <tr class="align-top">
-                                            <th scope="row" class="sticky left-0 z-10 w-44 min-w-[11rem] border-r border-slate-200 bg-slate-50 p-3 text-left text-xs font-bold uppercase tracking-wide text-indigo-900" x-text="row.area"></th>
+                                            <th scope="row" class="summary-area border-r border-slate-200 bg-slate-50 p-2 text-left text-[11px] font-bold uppercase tracking-wide text-indigo-900 lg:p-3 lg:text-xs" x-text="row.area"></th>
                                             <template x-for="lv in summary.levels" :key="lv">
-                                                <td class="border-r border-slate-100 p-3">
+                                                <td class="summary-cell border-r border-slate-100 p-2 lg:p-3"
+                                                    :data-level="lv" :class="!row.cells[lv].statements.length && 'summary-empty'">
                                                     <template x-if="row.cells[lv].statements.length">
                                                         <div class="space-y-3">
                                                             <!-- per-cell drill-down control -->
-                                                            <div class="no-print inline-flex rounded-lg bg-slate-100 p-0.5">
+                                                            <div class="no-print flex w-fit max-w-full flex-wrap rounded-lg bg-slate-100 p-0.5">
                                                                 <template x-for="d in depthOptions" :key="d.id">
                                                                     <button @click="setCellDepth(cellKey(row, lv), d.id)"
                                                                             :class="depthFor(cellKey(row, lv)) === d.id ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'"
@@ -416,51 +453,96 @@
                 <!-- ============ Visual tree view ============ -->
                 <template x-if="filtered.length && view === 'tree'">
                     <section class="space-y-3">
-                        <p class="text-xs text-slate-500">Level → Curriculum area → Strand → Sub-strand. Tap a header to expand.</p>
-                        <template x-for="lv in tree" :key="lv.level">
-                            <div class="panel overflow-hidden" x-data="{ open: false }">
-                                <button @click="open = !open" class="flex w-full items-center justify-between gap-3 bg-gradient-to-r from-indigo-900 to-violet-900 px-4 py-3 text-left text-white">
-                                    <span class="flex items-center gap-2.5">
-                                        <i class="fa-solid fa-chevron-right w-3 text-xs transition-transform" :class="open && 'rotate-90'"></i>
-                                        <span class="badge" :class="levelClass(lv.level)" x-text="lv.level"></span>
-                                    </span>
-                                    <span class="shrink-0 rounded-lg bg-white/20 px-2.5 py-1 text-xs font-medium" x-text="lv.count + ' items'"></span>
-                                </button>
+                        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <p class="text-xs text-slate-500">Level → Curriculum area → Strand (with its understanding) → Sub-strand (with Know &amp; Do). Tap a node to expand or collapse.</p>
+                            <div class="no-print flex shrink-0 gap-2 self-start">
+                                <button @click="expandTree()" class="btn border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"><i class="fa-solid fa-square-plus"></i>Expand all</button>
+                                <button @click="collapseTree()" class="btn border-slate-200 bg-white text-slate-600 hover:bg-slate-50"><i class="fa-solid fa-square-minus"></i>Collapse all</button>
+                            </div>
+                        </div>
 
-                                <div x-show="open" x-transition class="space-y-2 p-3">
-                                    <template x-for="ar in lv.areas" :key="ar.area">
-                                        <div class="overflow-hidden rounded-xl border border-slate-200" x-data="{ open: false }">
-                                            <button @click="open = !open" class="flex w-full items-center justify-between gap-3 bg-slate-100 px-3 py-2.5 text-left hover:bg-slate-200/70">
-                                                <span class="flex items-center gap-2">
-                                                    <i class="fa-solid fa-chevron-right w-3 text-[10px] text-slate-500 transition-transform" :class="open && 'rotate-90'"></i>
-                                                    <span class="text-xs font-bold uppercase text-slate-800" x-text="ar.area"></span>
+                        <div class="panel overflow-x-auto p-3 sm:p-5">
+                            <div class="tree min-w-[18rem]">
+                                <!-- Root -->
+                                <div class="tree-label bg-slate-900 text-white shadow-sm">
+                                    <span class="flex items-center gap-2.5 font-bold">
+                                        <i class="fa-solid fa-sitemap"></i>
+                                        <span x-text="filters.area || 'Curriculum'"></span>
+                                    </span>
+                                    <span class="shrink-0 rounded-lg bg-white/20 px-2.5 py-1 text-xs font-medium" x-text="filtered.length + ' records'"></span>
+                                </div>
+
+                                <div class="tree-children">
+                                    <!-- Level -->
+                                    <template x-for="lv in tree" :key="lv.key">
+                                        <div class="tree-node">
+                                            <button @click="toggleNode(lv.key)" :aria-expanded="isOpen(lv.key)"
+                                                    class="tree-label bg-gradient-to-r from-indigo-900 to-violet-900 text-white shadow-sm">
+                                                <span class="flex items-center gap-2.5">
+                                                    <i class="fa-solid fa-chevron-right w-3 text-xs transition-transform" :class="isOpen(lv.key) && 'rotate-90'"></i>
+                                                    <span class="badge" :class="levelClass(lv.level)" x-text="lv.level"></span>
                                                 </span>
-                                                <span class="shrink-0 rounded bg-slate-200 px-2 py-0.5 text-[11px] font-medium text-slate-700" x-text="ar.count"></span>
+                                                <span class="shrink-0 rounded-lg bg-white/20 px-2.5 py-1 text-xs font-medium" x-text="lv.count + ' items'"></span>
                                             </button>
 
-                                            <div x-show="open" x-transition class="space-y-2 border-t border-slate-200 bg-white p-2.5">
-                                                <template x-for="st in ar.strands" :key="st.strand">
-                                                    <div class="overflow-hidden rounded-lg border border-slate-200" x-data="{ open: false }">
-                                                        <button @click="open = !open" class="flex w-full items-center justify-between gap-3 bg-indigo-50 px-3 py-2 text-left hover:bg-indigo-100">
-                                                            <span class="flex items-center gap-2">
-                                                                <i class="fa-solid fa-chevron-right w-3 text-[10px] text-indigo-500 transition-transform" :class="open && 'rotate-90'"></i>
-                                                                <span class="font-semibold text-indigo-950" x-text="st.strand"></span>
+                                            <div x-show="isOpen(lv.key)" x-transition class="tree-children">
+                                                <!-- Curriculum area -->
+                                                <template x-for="ar in lv.areas" :key="ar.key">
+                                                    <div class="tree-node">
+                                                        <button @click="toggleNode(ar.key)" :aria-expanded="isOpen(ar.key)"
+                                                                class="tree-label border border-slate-300 bg-slate-100 hover:bg-slate-200/70">
+                                                            <span class="flex items-center gap-2.5">
+                                                                <i class="fa-solid fa-chevron-right w-3 text-[10px] text-slate-500 transition-transform" :class="isOpen(ar.key) && 'rotate-90'"></i>
+                                                                <span class="text-xs font-bold uppercase tracking-wide text-slate-800" x-text="ar.area"></span>
                                                             </span>
-                                                            <span class="shrink-0 rounded bg-indigo-100 px-2 py-0.5 text-[11px] font-medium text-indigo-800" x-text="st.items.length"></span>
+                                                            <span class="shrink-0 rounded bg-slate-200 px-2 py-0.5 text-[11px] font-medium text-slate-700" x-text="ar.count"></span>
                                                         </button>
 
-                                                        <div x-show="open" x-transition class="grid gap-2.5 border-t border-slate-200 bg-white p-2.5 md:grid-cols-2 xl:grid-cols-3">
-                                                            <template x-for="item in st.items" :key="item.id">
-                                                                <div class="flex flex-col gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3" x-data="{ expanded: false }">
-                                                                    <div class="flex items-start justify-between gap-2">
-                                                                        <h5 class="font-semibold text-slate-900" x-text="item.subStrand"></h5>
-                                                                        <button x-show="item.hasNotes" @click="openNotes(item)" class="btn-note shrink-0"><i class="fa-solid fa-note-sticky"></i>Notes</button>
+                                                        <div x-show="isOpen(ar.key)" x-transition class="tree-children">
+                                                            <!-- Strand + understanding -->
+                                                            <template x-for="st in ar.strands" :key="st.key">
+                                                                <div class="tree-node">
+                                                                    <div class="overflow-hidden rounded-xl border border-indigo-200 bg-indigo-50/70">
+                                                                        <button @click="toggleNode(st.key)" :aria-expanded="isOpen(st.key)"
+                                                                                class="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left hover:bg-indigo-100/60">
+                                                                            <span class="flex items-center gap-2.5">
+                                                                                <i class="fa-solid fa-chevron-right w-3 text-[10px] text-indigo-500 transition-transform" :class="isOpen(st.key) && 'rotate-90'"></i>
+                                                                                <span class="font-bold text-indigo-950" x-text="st.strand"></span>
+                                                                            </span>
+                                                                            <span class="shrink-0 rounded bg-indigo-100 px-2 py-0.5 text-[11px] font-medium text-indigo-800" x-text="st.leaves.length + (st.leaves.length === 1 ? ' sub-strand' : ' sub-strands')"></span>
+                                                                        </button>
+                                                                        <div class="space-y-1 border-t border-indigo-100 bg-white/70 px-3 py-2.5">
+                                                                            <p class="eyebrow">Understanding</p>
+                                                                            <template x-for="(stmt, si) in st.statements" :key="si">
+                                                                                <p class="flex gap-2 leading-snug text-slate-900">
+                                                                                    <span x-show="st.statements.length > 1" class="mt-0.5 h-5 w-5 shrink-0 rounded-full bg-indigo-600 text-center text-[11px] font-bold leading-5 text-white" x-text="si + 1"></span>
+                                                                                    <span class="font-medium" x-text="stmt"></span>
+                                                                                </p>
+                                                                            </template>
+                                                                            <p x-show="!st.statements.length" class="italic text-slate-400">No understanding statement.</p>
+                                                                        </div>
                                                                     </div>
-                                                                    <p x-show="item.subSubStrand" class="text-xs font-medium text-indigo-600" x-text="item.subSubStrand"></p>
-                                                                    <p class="text-slate-600" x-text="item.statement"></p>
-                                                                    <div x-show="expanded" x-transition class="space-y-2 border-t border-slate-200 pt-2" x-html="knowDoHtml(item)"></div>
-                                                                    <button @click="expanded = !expanded" class="self-end text-xs font-semibold text-indigo-600 hover:underline"
-                                                                            x-text="expanded ? 'Hide Know & Do' : 'Show Know & Do'"></button>
+
+                                                                    <div x-show="isOpen(st.key)" x-transition class="tree-children">
+                                                                        <!-- Sub-strand + know & do -->
+                                                                        <template x-for="leaf in st.leaves" :key="leaf.item.id">
+                                                                            <div class="tree-node">
+                                                                                <div class="space-y-2.5 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                                                                                    <div class="flex items-start justify-between gap-2">
+                                                                                        <div class="min-w-0">
+                                                                                            <h5 class="flex flex-wrap items-center gap-1.5 font-semibold text-slate-900">
+                                                                                                <span x-text="leaf.item.subStrand"></span>
+                                                                                                <span x-show="leaf.ref" class="rounded-full bg-indigo-600 px-1.5 text-[10px] font-bold leading-4 text-white" x-text="'U' + leaf.ref"></span>
+                                                                                            </h5>
+                                                                                            <p x-show="leaf.item.subSubStrand" class="text-xs font-medium text-indigo-600" x-text="leaf.item.subSubStrand"></p>
+                                                                                        </div>
+                                                                                        <button x-show="leaf.item.hasNotes" @click="openNotes(leaf.item)" class="btn-note shrink-0"><i class="fa-solid fa-note-sticky"></i>Notes</button>
+                                                                                    </div>
+                                                                                    <div class="grid gap-2 text-xs md:grid-cols-2" x-html="knowDoHtml(leaf.item)"></div>
+                                                                                </div>
+                                                                            </div>
+                                                                        </template>
+                                                                    </div>
                                                                 </div>
                                                             </template>
                                                         </div>
@@ -471,7 +553,7 @@
                                     </template>
                                 </div>
                             </div>
-                        </template>
+                        </div>
                     </section>
                 </template>
 
@@ -957,17 +1039,34 @@
         });
     }
 
+    // Level -> area -> strand -> sub-strand. A strand carries its understanding statement(s);
+    // each leaf is one sub-strand record. If a strand has several statements, leaves point at theirs (U1, U2…).
     function buildTree(items) {
         const levels = unique(items.map(i => i.level)).sort(compareLevels);
         return levels.map(level => {
             const inLevel = items.filter(i => i.level === level);
             return {
+                key: 'L:' + level,
                 level,
                 count: inLevel.length,
                 areas: [...groupBy(inLevel, i => i.area)].map(([area, inArea]) => ({
+                    key: 'A:' + level + '|' + area,
                     area,
                     count: inArea.length,
-                    strands: [...groupBy(inArea, i => i.strand)].map(([strand, list]) => ({ strand, items: list }))
+                    strands: [...groupBy(inArea, i => i.strand)]
+                        .sort((a, b) => a[0].localeCompare(b[0]))
+                        .map(([strand, list]) => {
+                            const statements = unique(list.map(i => i.statement));
+                            return {
+                                key: 'S:' + level + '|' + area + '|' + strand,
+                                strand,
+                                statements,
+                                leaves: list.map(item => ({
+                                    item,
+                                    ref: statements.length > 1 && item.statement ? statements.indexOf(item.statement) + 1 : 0
+                                }))
+                            };
+                        })
                 }))
             };
         });
@@ -998,6 +1097,7 @@
             printing: false,
             detail: null,
             notesItem: null,
+            treeOpen: {},
 
             // ---- derived (rebuilt by apply())
             filtered: [],
@@ -1133,6 +1233,26 @@
                 if (this.notesItem) this.notesItem = null;
                 else this.detail = null;
             },
+
+            // ---- visual tree (levels start open; everything else starts collapsed)
+            isOpen(key) {
+                if (this.printing) return true;
+                return key in this.treeOpen ? this.treeOpen[key] : key.startsWith('L:');
+            },
+            toggleNode(key) { this.treeOpen = { ...this.treeOpen, [key]: !this.isOpen(key) }; },
+            setTree(open) {
+                const state = {};
+                this.tree.forEach(lv => {
+                    state[lv.key] = open;
+                    lv.areas.forEach(ar => {
+                        state[ar.key] = open;
+                        ar.strands.forEach(st => { state[st.key] = open; });
+                    });
+                });
+                this.treeOpen = state;
+            },
+            expandTree() { this.setTree(true); },
+            collapseTree() { this.setTree(false); },
 
             // ---- export
             exportPdf() {
