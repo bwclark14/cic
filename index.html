@@ -19,6 +19,7 @@
             .badge  { @apply inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide; }
             .chip   { @apply rounded-full border px-3 py-1.5 text-xs font-medium transition text-left; }
             .btn    { @apply inline-flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-semibold transition; }
+            .btn-more { @apply inline-flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2 py-1 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100; }
             .btn-note { @apply inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800 transition hover:bg-amber-100; }
             .panel  { @apply rounded-2xl border border-slate-200 bg-white shadow-sm; }
             .eyebrow { @apply text-[11px] font-bold uppercase tracking-wider text-slate-400; }
@@ -413,7 +414,10 @@
                                         <article class="panel flex flex-col gap-3 p-4 transition hover:shadow-md">
                                             <div class="flex flex-wrap items-center justify-between gap-2">
                                                 <span class="badge" :class="levelClass(item.level)" x-text="item.level"></span>
-                                                <button x-show="item.hasNotes" @click="openNotes(item)" class="btn-note"><i class="fa-solid fa-note-sticky"></i>Notes</button>
+                                                <div class="flex flex-wrap items-center gap-1.5">
+                                                    <button x-show="item.hasNotes" @click="openNotes(item)" class="btn-note"><i class="fa-solid fa-note-sticky"></i>Notes</button>
+                                                    <button x-show="item.hasMore" @click="openMore(item)" class="btn-more"><i class="fa-solid fa-circle-info"></i>More info</button>
+                                                </div>
                                             </div>
                                             <div class="space-y-0.5">
                                                 <p class="text-xs text-slate-500" x-text="item.strand"></p>
@@ -532,7 +536,10 @@
                                                                                             </h5>
                                                                                             <p x-show="leaf.item.subSubStrand" class="text-xs font-medium text-indigo-600" x-text="leaf.item.subSubStrand"></p>
                                                                                         </div>
-                                                                                        <button x-show="leaf.item.hasNotes" @click="openNotes(leaf.item)" class="btn-note shrink-0"><i class="fa-solid fa-note-sticky"></i>Notes</button>
+                                                                                        <div class="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+                                                                                        <button x-show="leaf.item.hasNotes" @click="openNotes(leaf.item)" class="btn-note"><i class="fa-solid fa-note-sticky"></i>Notes</button>
+                                                                                        <button x-show="leaf.item.hasMore" @click="openMore(leaf.item)" class="btn-more"><i class="fa-solid fa-circle-info"></i>More info</button>
+                                                                                    </div>
                                                                                     </div>
                                                                                     <div class="grid gap-2 text-xs md:grid-cols-2" x-html="knowDoHtml(leaf.item)"></div>
                                                                                 </div>
@@ -608,6 +615,11 @@
                                                                                         class="flex items-center gap-1 border-l border-amber-200 bg-amber-50 px-2 text-amber-800 transition hover:bg-amber-100">
                                                                                     <i class="fa-solid fa-note-sticky"></i><span class="hidden sm:inline">Notes</span>
                                                                                 </button>
+                                                                                <button x-show="it.hasMore" @click="openMore(it)"
+                                                                                        :title="'More information for ' + it.subStrand" :aria-label="'More information for ' + it.subStrand"
+                                                                                        class="flex items-center gap-1 border-l border-indigo-200 bg-white px-2 text-indigo-700 transition hover:bg-indigo-100">
+                                                                                    <i class="fa-solid fa-circle-info"></i><span class="hidden sm:inline">More</span>
+                                                                                </button>
                                                                             </span>
                                                                         </template>
                                                                     </div>
@@ -673,7 +685,10 @@
                                                                         <button @click="openDetail(it)" class="text-left text-xs font-semibold text-indigo-700 hover:underline">
                                                                             <span x-text="it.subStrand"></span><span x-show="it.subSubStrand" class="font-medium opacity-80" x-text="' (' + it.subSubStrand + ')'"></span>
                                                                         </button>
-                                                                        <button x-show="it.hasNotes" @click="openNotes(it)" class="btn-note shrink-0"><i class="fa-solid fa-note-sticky"></i>Notes</button>
+                                                                        <div class="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+                                                                            <button x-show="it.hasNotes" @click="openNotes(it)" class="btn-note"><i class="fa-solid fa-note-sticky"></i>Notes</button>
+                                                                            <button x-show="it.hasMore" @click="openMore(it)" class="btn-more"><i class="fa-solid fa-circle-info"></i>More info</button>
+                                                                        </div>
                                                                     </div>
                                                                     <div class="space-y-2 text-xs" x-html="knowDoHtml(it)"></div>
                                                                 </div>
@@ -732,7 +747,10 @@
                     <div class="space-y-2" x-html="knowDoHtml(detail)"></div>
 
                     <div class="flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
-                        <button x-show="detail.hasNotes" @click="openNotes(detail)" class="btn-note"><i class="fa-solid fa-note-sticky"></i>Notes</button>
+                        <div class="flex flex-wrap items-center gap-1.5">
+                            <button x-show="detail.hasNotes" @click="openNotes(detail)" class="btn-note"><i class="fa-solid fa-note-sticky"></i>Notes</button>
+                            <button x-show="detail.hasMore" @click="openMore(detail)" class="btn-more"><i class="fa-solid fa-circle-info"></i>More info</button>
+                        </div>
                         <button @click="detail = null" class="btn ml-auto border-slate-900 bg-slate-900 text-white hover:bg-slate-800">Close</button>
                     </div>
                 </div>
@@ -762,6 +780,89 @@
                             </ul>
                         </div>
                     </template>
+                    <div x-show="notesItem.hasMore" class="border-t border-amber-200 pt-3">
+                        <button @click="openMore(notesItem)" class="btn w-full border-indigo-600 bg-indigo-600 text-white hover:bg-indigo-700">
+                            <i class="fa-solid fa-circle-info"></i>More information
+                        </button>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- ============ More information modal (vocabulary, deep dive, resources) ============ -->
+    <div x-show="moreItem" x-cloak x-transition.opacity @click.self="moreItem = null"
+         class="fixed inset-0 z-[70] flex items-end justify-center bg-slate-900/50 backdrop-blur-sm sm:items-center sm:p-4">
+        <div class="max-h-[88vh] w-full max-w-2xl space-y-5 overflow-y-auto rounded-t-2xl bg-white p-5 shadow-2xl sm:rounded-2xl">
+            <template x-if="moreItem">
+                <div class="space-y-5">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="space-y-1.5">
+                            <h3 class="flex items-center gap-2 font-bold text-slate-900"><i class="fa-solid fa-circle-info text-indigo-600"></i>More information</h3>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span class="badge" :class="levelClass(moreItem.level)" x-text="moreItem.level"></span>
+                                <span class="font-semibold text-slate-700" x-text="moreItem.subStrand"></span>
+                            </div>
+                        </div>
+                        <button @click="moreItem = null" class="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600" aria-label="Close more information">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+
+                    <!-- Vocabulary -->
+                    <template x-if="moreItem.vocabTerms.length">
+                        <section class="space-y-2">
+                            <h4 class="eyebrow flex items-center gap-1.5"><i class="fa-solid fa-spell-check"></i>Vocabulary</h4>
+                            <dl class="divide-y divide-slate-100 rounded-xl border border-slate-200">
+                                <template x-for="entry in vocabEntries(moreItem)" :key="entry.term">
+                                    <div class="space-y-0.5 px-3 py-2.5">
+                                        <dt class="font-semibold text-indigo-900" x-text="entry.term"></dt>
+                                        <template x-for="(def, di) in entry.defs" :key="di">
+                                            <dd class="leading-relaxed text-slate-700" x-text="def"></dd>
+                                        </template>
+                                        <dd x-show="!entry.defs.length" class="text-xs italic text-slate-400"
+                                            x-text="vocabLoaded ? 'No definition found for this term.' : (vocabFailed ? 'Definitions could not be loaded.' : 'Loading definitions…')"></dd>
+                                    </div>
+                                </template>
+                            </dl>
+                        </section>
+                    </template>
+
+                    <!-- Deep dive -->
+                    <template x-if="moreItem.deepParas.length">
+                        <section class="space-y-2">
+                            <h4 class="eyebrow flex items-center gap-1.5"><i class="fa-solid fa-graduation-cap"></i>Deep dive</h4>
+                            <div class="space-y-2.5 rounded-xl border border-violet-100 bg-violet-50/60 p-3.5">
+                                <template x-for="(para, pi) in moreItem.deepParas" :key="pi">
+                                    <p class="leading-relaxed text-slate-800" x-text="para"></p>
+                                </template>
+                            </div>
+                        </section>
+                    </template>
+
+                    <!-- Resources -->
+                    <template x-if="moreItem.resources.length">
+                        <section class="space-y-2">
+                            <h4 class="eyebrow flex items-center gap-1.5"><i class="fa-solid fa-link"></i>Resources</h4>
+                            <ul class="space-y-1.5">
+                                <template x-for="(r, ri) in moreItem.resources" :key="ri">
+                                    <li>
+                                        <template x-if="r.url">
+                                            <a :href="r.url" target="_blank" rel="noopener noreferrer"
+                                               class="flex items-start gap-2.5 rounded-xl border border-slate-200 px-3 py-2.5 transition hover:border-indigo-300 hover:bg-indigo-50">
+                                                <i class="fa-solid fa-arrow-up-right-from-square mt-1 text-xs text-indigo-500"></i>
+                                                <span class="min-w-0">
+                                                    <span class="block break-words font-semibold text-indigo-700" x-text="r.label"></span>
+                                                    <span class="block break-all text-xs text-slate-400" x-text="r.host"></span>
+                                                </span>
+                                            </a>
+                                        </template>
+                                        <template x-if="!r.url"><span class="block rounded-xl border border-slate-200 px-3 py-2.5 text-slate-700" x-text="r.label"></span></template>
+                                    </li>
+                                </template>
+                            </ul>
+                        </section>
+                    </template>
                 </div>
             </template>
         </div>
@@ -772,6 +873,9 @@
        Config
        ===================================================================== */
     const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTh6rBdn3GxwpFQtVpUwNr6ACdipDW-eDR7Diu9l_3DOkQ0hsTdMIMp8D0BETaGKxYk9pY5HM6ZbkWN/pub?gid=0&single=true&output=csv';
+
+    // Vocabulary definitions live on a second tab of the same published sheet.
+    const VOCAB_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTh6rBdn3GxwpFQtVpUwNr6ACdipDW-eDR7Diu9l_3DOkQ0hsTdMIMp8D0BETaGKxYk9pY5HM6ZbkWN/pub?gid=223106995&single=true&output=csv';
 
     const PAGE_SIZE = 12;
 
@@ -917,6 +1021,57 @@
         return blocks.length ? blocks : [{ heading: '', bullets: [text.trim()] }];
     }
 
+    // "a; b; c" -> ['a', 'b', 'c'] (trimmed, de-duplicated)
+    const splitList = text => unique(String(text || '').split(';').map(t => t.trim()));
+
+    // Free text -> paragraphs (one per line break).
+    const toParagraphs = text => String(text || '').split(/\r?\n+/).map(t => t.trim()).filter(Boolean);
+
+    // "Title https://x; https://y" -> [{ url, label, host }]. Only http(s) URLs become links.
+    function parseResources(text) {
+        return splitList(text).map(entry => {
+            const found = entry.match(/https?:\/\/[^\s<>"]+/i) || entry.match(/\bwww\.[^\s<>"]+/i);
+            if (found) {
+                const raw = found[0].replace(/[.,;:!?)\]]+$/, '');
+                try {
+                    const url = new URL(/^https?:/i.test(raw) ? raw : 'https://' + raw);
+                    if (url.protocol === 'http:' || url.protocol === 'https:') {
+                        const host = url.hostname.replace(/^www\./, '');
+                        const label = entry.replace(found[0], '').replace(/[()\[\]]/g, ' ').replace(/^[\s:\-–—|,]+|[\s:\-–—|,]+$/g, '').trim();
+                        return { url: url.href, label: label || host, host };
+                    }
+                } catch (e) { /* not a valid URL: fall through to plain text */ }
+            }
+            return { url: '', label: entry, host: '' };
+        });
+    }
+
+    // Vocabulary terms are matched to definitions case-insensitively, ignoring stray punctuation.
+    const normTerm = s => String(s || '').toLowerCase().replace(/[\u2018\u2019]/g, "'").replace(/\s+/g, ' ')
+        .replace(/^["'\u201c\u201d\s]+|["'\u201c\u201d.:,;\s]+$/g, '');
+
+    // Vocabulary sheet -> { normalisedTerm: [definitions] }. Finds the term/definition columns by header
+    // name, falls back to the first two columns, and copes with a sheet that has no header row.
+    function buildVocab(rows) {
+        const map = Object.create(null);
+        if (!rows.length) return map;
+        const headers = rows[0].map(normaliseHeader);
+        let termIdx = headers.findIndex(h => /\bterm\b|\bword\b|vocab/.test(h));
+        let defIdx = headers.findIndex(h => /defin|meaning|description|explanation/.test(h));
+        let start = 1;
+        if (termIdx === -1 && defIdx === -1) { termIdx = 0; defIdx = 1; start = 0; }
+        if (termIdx === -1) termIdx = [0, 1].find(i => i !== defIdx);
+        if (defIdx === -1) defIdx = [1, 0].find(i => i !== termIdx);
+        rows.slice(start).forEach(r => {
+            const term = normTerm(r[termIdx]);
+            const def = (r[defIdx] || '').trim();
+            if (!term || !def) return;
+            (map[term] = map[term] || []);
+            if (!map[term].includes(def)) map[term].push(def);
+        });
+        return map;
+    }
+
     function listHtml(list) {
         if (!list || !list.length) return '<p class="italic text-slate-400">None specified.</p>';
         return '<ul class="list-disc space-y-1 pl-4 leading-relaxed text-slate-700">' +
@@ -984,7 +1139,10 @@
             know:      find(h => h === 'know' || h === 'knows', h => h.includes('know'), h => h.includes('content')),
             // Do statements come from the "Dos" field only.
             do:        find(h => h === 'dos', h => h === 'do', h => /^dos?\b/.test(h)),
-            notes:     find(h => /note|comment|remark/.test(h))
+            notes:     find(h => /note|comment|remark/.test(h)),
+            vocab:     find(h => /vocab/.test(h)),
+            deepDive:  find(h => /deep\s*dive/.test(h)),
+            resources: find(h => /resource/.test(h))
         };
     }
 
@@ -1013,14 +1171,22 @@
                     statement: get(cols.statement),
                     know: get(cols.know),
                     do: get(cols.do),
-                    notes: get(cols.notes)
+                    notes: get(cols.notes),
+                    vocab: get(cols.vocab),
+                    deepDive: get(cols.deepDive),
+                    resourcesRaw: get(cols.resources)
                 };
                 item.knowList = toBullets(item.know);
                 item.doList = toBullets(item.do);
                 item.hasNotes = item.notes.length > 0;
                 item.noteBlocks = parseNotes(item.notes);
+                item.vocabTerms = splitList(item.vocab);
+                item.deepParas = toParagraphs(item.deepDive);
+                item.resources = parseResources(item.resourcesRaw);
+                item.hasMore = item.vocabTerms.length > 0 || item.deepParas.length > 0 || item.resources.length > 0;
                 item.searchText = [item.area, item.level, item.strand, item.subStrand, item.subSubStrand,
-                                   item.statement, item.know, item.do, item.notes].join(' ').toLowerCase();
+                                   item.statement, item.know, item.do, item.notes, item.vocab, item.deepDive,
+                                   item.resources.map(r => r.label).join(' ')].join(' ').toLowerCase();
                 return item;
             });
 
@@ -1133,6 +1299,10 @@
             printing: false,
             detail: null,
             notesItem: null,
+            moreItem: null,
+            vocab: Object.create(null),
+            vocabLoaded: false,
+            vocabFailed: false,
             treeOpen: {},
 
             // ---- derived (rebuilt by apply())
@@ -1148,6 +1318,7 @@
             async init() {
                 this.loading = true;
                 this.error = null;
+                this.loadVocab();   // runs alongside the main load; never blocks it
                 try {
                     const res = await fetch(CSV_URL, { cache: 'no-store' });
                     if (!res.ok) throw new Error('HTTP status ' + res.status);
@@ -1164,6 +1335,24 @@
                 } finally {
                     this.loading = false;
                 }
+            },
+
+            // ---- vocabulary definitions (second sheet; failure only means terms show without definitions)
+            async loadVocab() {
+                this.vocabLoaded = false;
+                this.vocabFailed = false;
+                try {
+                    const res = await fetch(VOCAB_URL, { cache: 'no-store' });
+                    if (!res.ok) throw new Error('HTTP status ' + res.status);
+                    this.vocab = buildVocab(parseCsv(await res.text()));
+                    this.vocabLoaded = true;
+                } catch (err) {
+                    console.warn('Could not load vocabulary definitions:', err);
+                    this.vocabFailed = true;
+                }
+            },
+            vocabEntries(item) {
+                return item.vocabTerms.map(term => ({ term, defs: this.vocab[normTerm(term)] || [] }));
             },
 
             // ---- filtering
@@ -1267,9 +1456,11 @@
             // ---- modals
             openDetail(item) { this.detail = item; },
             openNotes(item) { this.notesItem = item; },
+            openMore(item) { this.moreItem = item; },
             closeModals() {
                 // Close the top-most modal first (notes sit above details).
-                if (this.notesItem) this.notesItem = null;
+                if (this.moreItem) this.moreItem = null;
+                else if (this.notesItem) this.notesItem = null;
                 else this.detail = null;
             },
 
