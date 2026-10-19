@@ -30,6 +30,25 @@
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
+        /* Summary table: fits the screen width; stacks on phones */
+        .summary-table { font-size: 12px; line-height: 1.35; }
+        .summary-table.is-dense { font-size: 11px; }
+        .summary-table ul, .summary-table p, .summary-table li { overflow-wrap: anywhere; }
+        .summary-table .badge { font-size: 10px; }
+        @media (max-width: 767px) {
+            .summary-table, .summary-table thead, .summary-table tbody, .summary-table tr,
+            .summary-table th.summary-area, .summary-table td { display: block; width: 100%; }
+            .summary-table thead { display: none; }
+            .summary-table tbody tr { border-bottom: 8px solid #f1f5f9; }
+            .summary-table th.summary-area { border-right: 0; padding: .6rem .8rem; }
+            .summary-table td { border-right: 0; border-top: 1px solid #f1f5f9; padding: .65rem .8rem; font-size: 13px; }
+            .summary-table td.summary-empty { display: none; }
+            .summary-table td::before {
+                content: attr(data-level); display: inline-block; margin-bottom: .4rem; padding: .1rem .5rem;
+                border-radius: .4rem; background: #eef2ff; color: #3730a3; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em;
+            }
+        }
+
         /* Hierarchy tree: elbow connectors between parent and child nodes */
         .tree { --indent: 1.1rem; --gap: 1.35rem; --line: #cbd5e1; }
         .tree-children { position: relative; margin-left: var(--indent); padding-left: var(--gap); }
@@ -292,13 +311,14 @@
                             </div>
                         </div>
 
-                        <div class="panel overflow-x-auto">
-                            <table class="w-full min-w-max border-collapse">
+                        <div class="panel overflow-hidden">
+                            <table class="summary-table w-full table-fixed border-collapse break-words"
+                                   :class="summary.levels.length > 5 ? 'is-dense' : ''">
                                 <thead>
                                     <tr class="border-b border-slate-200 bg-slate-50">
-                                        <th class="sticky left-0 z-10 w-44 min-w-[11rem] border-r border-slate-200 bg-slate-50 p-3 text-left text-xs font-bold uppercase tracking-wider text-slate-500">Curriculum area</th>
+                                        <th class="summary-area w-28 border-r border-slate-200 bg-slate-50 p-2 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500 lg:w-36 lg:p-3">Curriculum area</th>
                                         <template x-for="lv in summary.levels" :key="lv">
-                                            <th class="min-w-[19rem] border-r border-slate-100 p-3 text-left">
+                                            <th class="border-r border-slate-100 p-2 text-left lg:p-3">
                                                 <span class="badge" :class="levelClass(lv)" x-text="lv"></span>
                                             </th>
                                         </template>
@@ -307,13 +327,14 @@
                                 <tbody class="divide-y divide-slate-100">
                                     <template x-for="row in summary.rows" :key="row.area">
                                         <tr class="align-top">
-                                            <th scope="row" class="sticky left-0 z-10 w-44 min-w-[11rem] border-r border-slate-200 bg-slate-50 p-3 text-left text-xs font-bold uppercase tracking-wide text-indigo-900" x-text="row.area"></th>
+                                            <th scope="row" class="summary-area border-r border-slate-200 bg-slate-50 p-2 text-left text-[11px] font-bold uppercase tracking-wide text-indigo-900 lg:p-3 lg:text-xs" x-text="row.area"></th>
                                             <template x-for="lv in summary.levels" :key="lv">
-                                                <td class="border-r border-slate-100 p-3">
+                                                <td class="summary-cell border-r border-slate-100 p-2 lg:p-3"
+                                                    :data-level="lv" :class="!row.cells[lv].statements.length && 'summary-empty'">
                                                     <template x-if="row.cells[lv].statements.length">
                                                         <div class="space-y-3">
                                                             <!-- per-cell drill-down control -->
-                                                            <div class="no-print inline-flex rounded-lg bg-slate-100 p-0.5">
+                                                            <div class="no-print flex w-fit max-w-full flex-wrap rounded-lg bg-slate-100 p-0.5">
                                                                 <template x-for="d in depthOptions" :key="d.id">
                                                                     <button @click="setCellDepth(cellKey(row, lv), d.id)"
                                                                             :class="depthFor(cellKey(row, lv)) === d.id ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'"
