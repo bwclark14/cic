@@ -233,41 +233,37 @@
                     </div>
                 </section>
 
-                <!-- ============ Technologies banner ============ -->
-                <template x-if="isTechnologies">
+                <!-- ============ Purpose statement banner (per curriculum area) ============ -->
+                <template x-if="purpose">
                     <section class="space-y-4 rounded-2xl border border-indigo-700 bg-gradient-to-br from-indigo-900 via-indigo-800 to-violet-900 p-4 text-white shadow-xl sm:p-6"
                              x-data="{ open: window.innerWidth >= 768 }">
-                        <button @click="open = !open" class="flex w-full items-center justify-between gap-3 text-left">
+                        <button @click="open = !open" :aria-expanded="open" class="flex w-full items-center justify-between gap-3 text-left">
                             <span class="flex items-center gap-3">
-                                <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10"><i class="fa-solid fa-microchip"></i></span>
+                                <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10"><i class="fa-solid" :class="purpose.icon"></i></span>
                                 <span>
-                                    <span class="block text-base font-bold sm:text-lg">Technologies Purpose Statement</span>
-                                    <span class="block text-xs text-indigo-200">Technology and Innovation curriculum framework overview</span>
+                                    <span class="block text-base font-bold sm:text-lg" x-text="purpose.title"></span>
+                                    <span class="block text-xs text-indigo-200" x-text="purpose.subtitle"></span>
                                 </span>
                             </span>
                             <i class="fa-solid fa-chevron-down text-xs transition-transform" :class="open && 'rotate-180'"></i>
                         </button>
 
                         <div x-show="open" x-transition class="space-y-5 border-t border-indigo-700/60 pt-4">
-                            <p class="leading-relaxed text-indigo-100">
-                                The Technology and Innovation curriculum gives children and young people opportunities to learn with, through and about technology to be creative, critical thinkers who use ethical, sustainable, and innovative approaches to address real world challenges, bridging theory and practice while preparing them to thrive as adaptable, socially aware citizens in a dynamic, inclusive, and rapidly evolving world.
-                            </p>
+                            <div class="space-y-3">
+                                <template x-for="(para, pi) in purpose.paragraphs" :key="pi">
+                                    <p class="leading-relaxed text-indigo-100" x-text="para"></p>
+                                </template>
+                            </div>
                             <h3 class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-indigo-200">
                                 <i class="fa-solid fa-lightbulb text-amber-300"></i>Big Ideas
                             </h3>
-                            <div class="grid gap-3 md:grid-cols-3">
-                                <div class="space-y-2 rounded-xl border border-white/10 bg-white/10 p-4">
-                                    <div class="font-bold text-amber-300">1. Understanding Our World</div>
-                                    <p class="leading-relaxed text-indigo-100">We live in a complex world full of physical, digital, social, and economic systems. Modern living requires critically evaluating the products and decisions that shape the world around them and understanding how data is created and used, and how systems recognise patterns.</p>
-                                </div>
-                                <div class="space-y-2 rounded-xl border border-white/10 bg-white/10 p-4">
-                                    <div class="font-bold text-emerald-300">2. Innovation</div>
-                                    <p class="leading-relaxed text-indigo-100">Engaging with our world requires the confident use of tools, materials, and processes to create products and services. Practical skills like designing, making, testing, and refining are essential to tackling real-world challenges.</p>
-                                </div>
-                                <div class="space-y-2 rounded-xl border border-white/10 bg-white/10 p-4">
-                                    <div class="font-bold text-cyan-300">3. Shaping Our Future</div>
-                                    <p class="leading-relaxed text-indigo-100">Every technological decision has economic, environmental, and social impacts. By critiquing the implications of technology, learners develop the capacity to make responsible choices and actively shape a more sustainable and equitable future.</p>
-                                </div>
+                            <div class="grid gap-3" :class="purpose.bigIdeas.length === 3 ? 'md:grid-cols-3' : 'md:grid-cols-2 xl:grid-cols-3'">
+                                <template x-for="(idea, ii) in purpose.bigIdeas" :key="ii">
+                                    <div class="space-y-2 rounded-xl border border-white/10 bg-white/10 p-4">
+                                        <div class="font-bold" :class="IDEA_COLOURS[ii % IDEA_COLOURS.length]" x-text="idea.title"></div>
+                                        <p class="leading-relaxed text-indigo-100" x-text="idea.text"></p>
+                                    </div>
+                                </template>
                             </div>
                         </div>
                     </section>
@@ -764,6 +760,45 @@
 
     const PAGE_SIZE = 12;
 
+    // Purpose statements and big ideas, shown when a single curriculum area is selected.
+    // `match` is tested against the selected area name.
+    const IDEA_COLOURS = ['text-amber-300', 'text-emerald-300', 'text-cyan-300', 'text-rose-300', 'text-violet-300'];
+
+    const PURPOSE_STATEMENTS = [
+        {
+            match: /technolog/i,
+            icon: 'fa-microchip',
+            title: 'Technologies Purpose Statement',
+            subtitle: 'Technology and Innovation curriculum framework overview',
+            paragraphs: [
+                `The Technology and Innovation curriculum gives children and young people opportunities to learn with, through and about technology to be creative, critical thinkers who use ethical, sustainable, and innovative approaches to address real world challenges, bridging theory and practice while preparing them to thrive as adaptable, socially aware citizens in a dynamic, inclusive, and rapidly evolving world.`
+            ],
+            bigIdeas: [
+                { title: '1. Understanding Our World', text: `We live in a complex world full of physical, digital, social, and economic systems. Modern living requires critically evaluating the products and decisions that shape the world around them and understanding how data is created and used, and how systems recognise patterns.` },
+                { title: '2. Innovation', text: `Engaging with our world requires the confident use of tools, materials, and processes to create products and services. Practical skills like designing, making, testing, and refining are essential to tackling real-world challenges.` },
+                { title: '3. Shaping Our Future', text: `Every technological decision has economic, environmental, and social impacts. By critiquing the implications of technology, learners develop the capacity to make responsible choices and actively shape a more sustainable and equitable future.` }
+            ]
+        },
+        {
+            match: /social\s*stud/i,
+            icon: 'fa-earth-europe',
+            title: 'Social Studies Purpose Statement',
+            subtitle: 'Social Studies curriculum framework overview',
+            paragraphs: [
+                `Social Studies supports children and young people to understand who they are, how they relate to others and how people are connected across time and place. It begins with them – their identities, their relationships and their place in the world – and extends outward to explore wider communities, societies and environments.`,
+                `Through Social Studies, children and young people build knowledge and understanding of how people live together, how decisions are made and how the past and present shape the world and influence possible futures. They develop an awareness of rights, and of responsibilities, and how these inform people’s lives. As they progress, they explore life at local, national and global scales, recognising patterns, connections and differences in the ways people experience and influence the world.`,
+                `Social Studies provides rich opportunities to investigate real-world issues and connect ideas across disciplines, supporting children and young people to question, reason and make informed and responsible decisions. Children and young people develop the knowledge and understanding to think critically, consider different perspectives, and explore meaningful questions about people, society and the environment. Social Studies encourages curiosity, respect and a desire to participate in and contribute to the world.`
+            ],
+            bigIdeas: [
+                { title: 'Change: The Changing World', text: `Change shapes people, places, societies and environments over time. Understanding how and why change occurs, why some things remain the same, and how people influence and respond to change, helps make sense of the past, present and possible futures. Exploring the causes and consequences of change at local, national and global scales shows that change can happen at different paces, be experienced in different ways by people and communities, and have intended or unintended outcomes. Understanding change and continuity helps make sense of the world.` },
+                { title: 'Connections: The Connected World', text: `Connections shape people, places, societies and environments across local, national and global scales. Understanding how people, places, systems and ideas are connected, and how these connections have changed over time, helps make sense of the past, present and possible futures. Exploring the social, economic, environmental and political connections between people and places shows that relationships influence opportunities and challenges, and how events and decisions are often interconnected. Understanding how connections influence people and places helps make sense of the world.` },
+                { title: 'Diversity: The Diverse World', text: `Diversity shapes people, places, societies and the ideas, beliefs and values that influence them. Understanding similarities and differences within and between people, communities and environments helps make sense of the past, present and possible futures. Exploring different identities, cultures, beliefs and perspectives shows that diversity shapes people's experiences, opportunities and participation within society. Recognising the value of diversity helps make sense of the world.` },
+                { title: 'Fragility: The Fragile World', text: `Fragility reflects the reality that people, places, societies, systems and environments can be disrupted, transformed or lost. Understanding how and why stability is strengthened, challenged or restored helps make sense of the past, present and possible futures. Exploring how human choices, natural processes, conflict, cooperation and sustainability influence people and places shows that stability is not always fixed. Understanding the balance between fragility and resilience helps make sense of the world.` },
+                { title: 'Knowing: Making Sense of the World', text: `Knowledge is created, interpreted and used to understand the world. Curiosity, evidence, enquiry and different perspectives shape knowledge and help make sense of the past, present and possible futures. Critical thinking helps people question, interpret and apply knowledge in informed ways. Understanding how knowledge is constructed and used helps people make sense of the world.` }
+            ]
+        }
+    ];
+
     // Detail levels for the Summary drill-down.
     const DEPTH_OPTIONS = [
         { id: 0, label: 'Understandings', short: 'Statements' },
@@ -1092,7 +1127,7 @@
             tree: [],
 
             // ---- template helpers
-            levelClass, listHtml, knowDoHtml,
+            levelClass, listHtml, knowDoHtml, IDEA_COLOURS,
 
             // ---- loading
             async init() {
@@ -1124,7 +1159,10 @@
                 return (f.area ? 1 : 0) + f.levels.length + f.strands.length + f.subStrands.length;
             },
 
-            get isTechnologies() { return this.filters.area.toLowerCase().includes('technolog'); },
+            get purpose() {
+                const area = this.filters.area;
+                return area ? PURPOSE_STATEMENTS.find(p => p.match.test(area)) || null : null;
+            },
 
             // Recomputes the cascading filter options, the filtered list and every derived view.
             apply() {
