@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KDU Explorer</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script>
+        tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'] } } } };
+    </script>
+
+    <!-- Shared component styles -->
+    <style type="text/tailwindcss">
+        @layer components {
+            .btn { @apply inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 active:scale-[.98]; }
+            .btn-primary { @apply border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100; }
+            .chip { @apply rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-100; }
+            .chip-on { @apply border-indigo-600 bg-indigo-600 text-white hover:bg-indigo-700; }
+            .panel { @apply rounded-2xl border border-slate-200 bg-white shadow-sm; }
+            .label { @apply text-[11px] font-semibold uppercase tracking-wider text-slate-400; }
+            .badge { @apply inline-block rounded-md border px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide; }
+            .section-bar { @apply flex items-center justify-between gap-3 rounded-2xl bg-gradient-to-r from-indigo-900 to-violet-900 px-4 py-3 text-white; }
+        }
+    </style>
+    <style>
+        [x-cloak] { display: none !important; }
+        .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        summary { list-style: none; }
+        summary::-webkit-details-marker { display: none; }
+        details[open] > summary .chev { transform: rotate(90deg); }
+        details[open] > summary .chev-down { transform: rotate(180deg); }
+        @media print {
+            body { background: #fff !important; }
+            .no-print { display: none !important; }
+            .panel { box-shadow: none !important; break-inside: avoid; }
+        }
+    </style>
+</head>
+
+<body class="bg-slate-50 font-sans text-sm text-slate-800 antialiased selection:bg-indigo-500 selection:text-white"
+      x-data="kduApp()" @keydown.escape.window="closeModal()">
+
+    <!-- ============ Header ============ -->
+    <header class="no-print sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
+        <div class="mx-auto w-full max-w-screen-2xl space-y-2.5 px-3 py-2.5 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between gap-3">
+                <div class="flex min-w-0 items-center gap-3">
+                    <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 text-white shadow-md shadow-indigo-200">
+                        <i class="fa-solid fa-graduation-cap"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <h1 class="truncate text-base font-bold leading-tight text-slate-900">KDU Explorer</h1>
+                        <p class="truncate text-xs text-slate-500">Know, Do and Understand Framework</p>
+                    </div>
+                </div>
+                <button @click="exportPdf()" class="btn btn-primary shrink-0" title="Export PDF">
+                    <i class="fa-solid fa-file-pdf"></i><span class="hidden sm:inline">Export PDF</span>
+                </button>
+            </div>
+
+            <!-- View switcher: scrolls sideways on phones, fills the row on larger screens -->
+            <nav class="no-scrollbar -mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0" aria-label="Views">
+                <div class="flex w-max min-w-full gap-1 rounded-xl bg-slate-100 p-1 sm:w-full">
+                    <template x-for="v in views" :key="v.id">
+                        <button @click="view = v.id"
+                                :class="view === v.id ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:bg-white/60'"
+                                class="flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg px-3.5 py-2 text-sm font-semibold transition sm:flex-1">
+                            <i :class="'fa-solid ' + v.icon" class="text-xs"></i>
+                            <span x-text="v.label"></span>
+                        </button>
+                    </template>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <main class="mx-auto w-full max-w-screen-2xl space-y-4 px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
+
+        <!-- Loading -->
+        <div x-show="loading" x-cloak class="flex flex-col items-center justify-center gap-4 py-24">
+            <div class="h-12 w-12 animate-spin rounded-full border-4 border-indigo-200 border-t-indigo-600"></div>
+            <p class="animate-pulse font-medium text-slate-600">Loading curriculum data…</p>
+        </div>
+
+        <!-- Error -->
+        <div x-show="error" x-cloak class="mx-auto my-12 max-w-lg rounded-2xl border border-red-200 bg-red-50 p-6 text-center shadow-sm">
+            <div class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-600">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <h3 class="mb-1 font-semibold text-red-900">Failed to load curriculum</h3>
+            <p class="mb-4 text-red-600" x-text="error"></p>
+            <button @click="load()" class="rounded-xl bg-red-600 px-4 py-2 font-semibold text-white transition hover:bg-red-700">Try again</button>
+        </div>
+
+        <div x-show="!loading && !error" x-cloak class="space-y-4">
+
+            <!-- ============ Search & filters ============ -->
+            <section class="no-print panel space-y-3 p-3 sm:p-4">
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <div class="relative flex-1">
+                        <i class="fa-solid fa-magnifying-glass pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                        <input type="search" x-model.debounce.250ms="search" placeholder="Search keywords across the curriculum…"
+                               class="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-3 text-base transition focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 sm:text-sm">
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button @click="filtersOpen = !filtersOpen" class="btn btn-primary flex-1 sm:flex-none">
+                            <i class="fa-solid fa-sliders"></i>
+                            <span>Filters</span>
+                            <span x-show="activeFilterCount" x-text="activeFilterCount" class="rounded-full bg-indigo-600 px-1.5 text-[11px] text-white"></span>
+                        </button>
+                        <button @click="resetFilters()" class="btn flex-1 sm:flex-none">
+                            <i class="fa-solid fa-rotate-right"></i><span>Reset</span>
+                        </button>
+                    </div>
+                </div>
+
+                <p class="text-xs font-medium text-slate-500" x-text="filtered.length + ' of ' + items.length + ' records'"></p>
+
+                <div x-show="filtersOpen" x-transition.opacity class="space-y-4 border-t border-slate-100 pt-4">
+                    <div class="space-y-1.5">
+                        <label for="areaSelect" class="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                            <i class="fa-solid fa-layer-group text-indigo-600"></i> Curriculum area
+                        </label>
+                        <select id="areaSelect" x-model="area"
+                                class="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-base font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 sm:text-sm">
+                            <option value="">All curriculum areas</option>
+                            <template x-for="a in areaOptions" :key="a">
+                                <option :value="a" x-text="a"></option>
+                            </template>
+                        </select>
+                    </div>
+
+                    <div class="grid gap-4 lg:grid-cols-3">
+                        <template x-for="g in filterGroups" :key="g.key">
+                            <div class="space-y-1.5">
+                                <div class="flex items-center justify-between">
+                                    <span class="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                                        <i :class="'fa-solid ' + g.icon" class="text-indigo-600"></i><span x-text="g.title"></span>
+                                    </span>
+                                    <button x-show="selected[g.key].length" @click="clearGroup(g.key)" class="text-xs font-medium text-slate-500 hover:text-indigo-600">Clear</button>
+                                </div>
+                                <div class="flex max-h-40 flex-wrap gap-1.5 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-2">
+                                    <template x-for="opt in options[g.key]" :key="opt">
+                                        <button @click="toggle(g.key, opt)" :class="selected[g.key].includes(opt) ? 'chip-on' : ''"
+                                                class="chip text-left" x-text="opt"></button>
+                                    </template>
+                                    <span x-show="!options[g.key].length" class="p-1 text-xs italic text-slate-400">No options</span>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ============ Purpose statement (Technologies) ============ -->
+            <section x-show="showPurpose" x-cloak class="space-y-5 rounded-2xl border border-indigo-700 bg-gradient-to-br from-indigo-900 via-indigo-800 to-violet-900 p-4 text-white shadow-xl sm:p-8">
+                <div class="flex items-center gap-3 border-b border-indigo-700/60 pb-4">
+                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10"><i class="fa-solid fa-microchip"></i></div>
+                    <div>
+                        <h2 class="text-base font-bold sm:text-lg" x-text="purpose.title"></h2>
+                        <p class="text-xs text-indigo-200" x-text="purpose.subtitle"></p>
+                    </div>
+                </div>
+                <p class="leading-relaxed text-indigo-100 sm:text-base" x-text="purpose.text"></p>
+                <div class="space-y-3">
+                    <h3 class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-indigo-200">
+                        <i class="fa-solid fa-lightbulb text-amber-300"></i> Big Ideas
+                    </h3>
+                    <div class="grid gap-3 md:grid-cols-3">
+                        <template x-for="idea in purpose.ideas" :key="idea.title">
+                            <div class="space-y-2 rounded-xl border border-white/10 bg-white/10 p-4">
+                                <h4 class="font-bold" :class="idea.tone" x-text="idea.title"></h4>
+                                <p class="text-[13px] leading-relaxed text-indigo-100" x-text="idea.text"></p>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Understanding matrix orientation toggle -->
+            <div x-show="view === 'understanding' && filtered.length" class="no-print flex justify-end">
+                <button @click="matrixRows = matrixRows === 'level' ? 'strand' : 'level'" class="btn btn-primary">
+                    <i class="fa-solid fa-right-left"></i>
+                    <span x-text="matrixRows === 'level' ? 'Switch to strands as rows' : 'Switch to levels as rows'"></span>
+                </button>
+            </div>
+
+            <!-- ============ Active view ============ -->
+            <div x-show="!filtered.length" class="panel p-10 text-center text-slate-500">
+                <i class="fa-regular fa-folder-open mb-3 text-3xl text-slate-300"></i>
+                <p class="font-medium">No matching curriculum items found</p>
+                <p class="mt-1 text-xs text-slate-400">Try a broader search or clear some filters.</p>
+            </div>
+
+            <div x-show="filtered.length" class="space-y-5" @click="onContentClick($event)" x-html="viewHtml"></div>
+
+            <!-- Pagination (cards view only) -->
+            <div x-show="view === 'cards' && totalPages > 1" class="no-print panel flex items-center justify-between gap-3 px-4 py-3">
+                <button @click="goPage(page - 1)" :disabled="page === 1" class="btn disabled:cursor-not-allowed disabled:opacity-40">
+                    <i class="fa-solid fa-chevron-left"></i><span class="hidden sm:inline">Previous</span>
+                </button>
+                <span class="text-xs text-slate-600">Page <b class="text-slate-900" x-text="page"></b> of <b class="text-slate-900" x-text="totalPages"></b></span>
+                <button @click="goPage(page + 1)" :disabled="page === totalPages" class="btn disabled:cursor-not-allowed disabled:opacity-40">
+                    <span class="hidden sm:inline">Next</span><i class="fa-solid fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- ============ Detail modal (bottom sheet on phones) ============ -->
+    <div x-show="modalOpen" x-cloak x-transition.opacity @click.self="closeModal()"
+         class="no-print fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 backdrop-blur-sm sm:items-center sm:p-4">
+        <div class="flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:max-w-xl sm:rounded-2xl" role="dialog" aria-modal="true">
+            <div class="flex items-start justify-between gap-3 border-b border-slate-100 p-4">
+                <div class="min-w-0 space-y-1.5">
+                    <span class="badge" :class="activeItem ? levelClass(activeItem.level) : ''" x-text="activeItem ? activeItem.level : ''"></span>
+                    <h3 class="font-bold text-slate-900 sm:text-base" x-text="activeItem ? activeItem.area : ''"></h3>
+                </div>
+                <button @click="closeModal()" aria-label="Close" class="shrink-0 rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="flex-1 overflow-y-auto p-4" x-html="modalHtml"></div>
+            <div class="border-t border-slate-100 p-3">
+                <button @click="closeModal()" class="w-full rounded-xl bg-slate-900 px-4 py-2.5 font-semibold text-white transition hover:bg-slate-800">Close</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+/* =========================================================================
+   Config
+   ========================================================================= */
+const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTh6rBdn3GxwpFQtVpUwNr6ACdipDW-eDR7Diu9l_3DOkQ0hsTdMIMp8D0BETaGKxYk9pY5HM6ZbkWN/pub?output=csv';
+const PAGE_SIZE = 12;
+
+const VIEWS = [
+    { id: 'cards',         label: 'Cards',         icon: 'fa-grip' },
+    { id: 'table',         label: 'Table',         icon: 'fa-table-list' },
+    { id: 'tree',          label: 'Visual Tree',   icon: 'fa-sitemap' },
+    { id: 'understanding', label: 'Understanding', icon: 'fa-border-all' },
+    { id: 'knowdo',        label: 'Know & Do',     icon: 'fa-list-check' },
+];
+
+const FILTER_GROUPS = [
+    { key: 'levels',     title: 'Levels',      icon: 'fa-signal' },
+    { key: 'strands',    title: 'Strands',     icon: 'fa-compass' },
+    { key: 'subStrands', title: 'Sub-strands', icon: 'fa-tag' },
+];
+
+const PURPOSE = {
+    match: 'technolog',
+    title: 'Technologies Purpose Statement',
+    subtitle: 'Technology and Innovation Curriculum Framework Overview',
+    text: 'The Technology and Innovation curriculum gives children and young people opportunities to learn with, through and about technology to be creative, critical thinkers who use ethical, sustainable, and innovative approaches to address real world challenges, bridging theory and practice while preparing them to thrive as adaptable, socially aware citizens in a dynamic, inclusive, and rapidly evolving world.',
+    ideas: [
+        { title: '1. Understanding Our World', tone: 'text-amber-300', text: 'We live in a complex world full of physical, digital, social, and economic systems. Modern living requires critically evaluating the products and decisions that shape the world around them and understanding how data is created and used, and how systems recognise patterns.' },
+        { title: '2. Innovation', tone: 'text-emerald-300', text: 'Engaging with our world requires the confident use of tools, materials, and processes to create products and services. Practical skills like designing, making, testing, and refining are essential to tackling real-world challenges.' },
+        { title: '3. Shaping Our Future', tone: 'text-cyan-300', text: 'Every technological decision has economic, environmental, and social impacts. By critiquing the implications of technology, learners develop the capacity to make responsible choices and actively shape a more sustainable and equitable future.' },
+    ],
+};
+
+/* =========================================================================
+   Data helpers
+   ========================================================================= */
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+/** Split free text into sentence bullets. */
+const sentences = t => (t || '').split(/\.\s+|\.$/).map(s => s.trim()).filter(Boolean)
+    .map(s => /[.!?:]$/.test(s) ? s : s + '.');
+
+function levelRank(level) {
+    const s = (level || '').toLowerCase();
+    if (/early|foundation|reception|prep/.test(s)) return 0;
+    const word = ['first', 'second', 'third', 'fourth', 'fifth', 'sixth'].findIndex(w => s.includes(w));
+    if (word > -1) return word + 1;
+    const num = s.match(/\d+/);
+    return num ? parseInt(num[0], 10) : 100;
+}
+const levelCmp = (a, b) => levelRank(a) - levelRank(b) || a.localeCompare(b, undefined, { numeric: true });
+
+const LEVEL_STYLES = [
+    'bg-amber-100 text-amber-800 border-amber-300',
+    'bg-emerald-100 text-emerald-800 border-emerald-300',
+    'bg-teal-100 text-teal-800 border-teal-300',
+    'bg-cyan-100 text-cyan-800 border-cyan-300',
+    'bg-blue-100 text-blue-800 border-blue-300',
+    'bg-indigo-100 text-indigo-800 border-indigo-300',
+    'bg-violet-100 text-violet-800 border-violet-300',
+];
+const levelClass = level => LEVEL_STYLES[levelRank(level)] || 'bg-slate-100 text-slate-700 border-slate-300';
+
+const uniq = (arr, cmp) => [...new Set(arr.filter(Boolean))].sort(cmp);
+
+/** Group an array by key; returns sorted [key, items[]] pairs (stable within groups). */
+function groupBy(arr, keyFn, cmp = (a, b) => a.localeCompare(b)) {
+    const map = new Map();
+    arr.forEach(item => {
+        const k = keyFn(item);
+        if (!map.has(k)) map.set(k, []);
+        map.get(k).push(item);
+    });
+    return [...map].sort((a, b) => cmp(a[0], b[0]));
+}
+
+function parseCsv(text) {
+    const rows = [];
+    let row = [''], inQuotes = false;
+    for (let i = 0; i < text.length; i++) {
+        const c = text[i], next = text[i + 1];
+        if (c === '"') {
+            if (inQuotes && next === '"') { row[row.length - 1] += '"'; i++; }
+            else inQuotes = !inQuotes;
+        } else if (c === ',' && !inQuotes) {
+            row.push('');
+        } else if ((c === '\n' || c === '\r') && !inQuotes) {
+            if (c === '\r' && next === '\n') i++;
+            rows.push(row); row = [''];
+        } else {
+            row[row.length - 1] += c;
+        }
+    }
+    if (row.length > 1 || row[0] !== '') rows.push(row);
+    return rows;
+}
+
+function rowsToItems(rows) {
+    if (rows.length < 2) return [];
+    const head = rows[0].map(h => h.trim().toLowerCase());
+    const find = (test, fallback) => { const i = head.findIndex(test); return i > -1 ? i : fallback; };
+    const col = {
+        area:      find(h => /area|domain|subject|category/.test(h), 0),
+        level:     find(h => /level|grade|stage/.test(h), 1),
+        strand:    find(h => /strand/.test(h) && !/sub/.test(h), 2),
+        subStrand: find(h => /sub/.test(h) && /strand/.test(h) && !/sub.?sub/.test(h), 3),
+        subSub:    find(h => /sub.?sub|elaboration|focus/.test(h), -1),
+        statement: find(h => /statement|understanding|overarching/.test(h), 4),
+        know:      find(h => /know/.test(h) || h === 'content', 5),
+        do:        find(h => /^do\b|skill|practice/.test(h), 6),
+        notes:     find(h => /note|comment|remark/.test(h), -1),
+    };
+    return rows.slice(1)
+        .filter(r => r.some(c => c.trim()))
+        .map((r, id) => {
+            const cell = i => (i < 0 ? '' : (r[i] || '').trim());
+            return {
+                id,
+                area:      cell(col.area) || 'General Area',
+                level:     cell(col.level) || 'General Level',
+                strand:    cell(col.strand) || 'General Strand',
+                subStrand: cell(col.subStrand) || 'General Sub-Strand',
+                subSub:    cell(col.subSub),
+                statement: cell(col.statement),
+                know:      cell(col.know),
+                do:        cell(col.do),
+                notes:     cell(col.notes),
+            };
+        });
+}
+
+/** Split curriculum notes into headed bullet blocks. */
+function parseNotes(text) {
+    if (!text) return [];
+    const parts = text.split(/\b(inc?l?udes but not limited to|inc?l?udes|excludes|notes)\b/i);
+    const blocks = [];
+    const intro = parts[0].trim();
+    if (intro) blocks.push({ heading: '', bullets: sentences(intro) });
+    for (let i = 1; i < parts.length; i += 2) {
+        const body = (parts[i + 1] || '').replace(/^[\s:–-]+/, '').trim();
+        const heading = parts[i][0].toUpperCase() + parts[i].slice(1).toLowerCase();
+        blocks.push({ heading, bullets: sentences(body) });
+    }
+    return blocks;
+}
+
+/* =========================================================================
+   HTML renderers (pure functions; all text is escaped)
+   ========================================================================= */
+const TONES = {
+    know: { title: 'Know', icon: 'fa-brain',         box: 'border-blue-100 bg-blue-50/60',       head: 'text-blue-800' },
+    do:   { title: 'Do',   icon: 'fa-person-running', box: 'border-emerald-100 bg-emerald-50/60', head: 'text-emerald-800' },
+};
+const CHEV = '<i class="fa-solid fa-chevron-right chev text-xs transition-transform"></i>';
+const CHEV_DOWN = '<i class="fa-solid fa-chevron-down chev-down text-xs transition-transform"></i>';
+const KD_COLS = 'md:grid-cols-[minmax(0,1.3fr)_minmax(0,1.5fr)_minmax(0,1.5fr)]';
+
+const levelBadge = l => `<span class="badge ${levelClass(l)}">${esc(l)}</span>`;
+
+const openBtn = (item, cls, inner) => `<button type="button" data-open="${item.id}" class="${cls}">${inner}</button>`;
+
+const notesBtn = item => item.notes
+    ? openBtn(item, 'inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800 transition hover:bg-amber-100',
+        '<i class="fa-solid fa-note-sticky text-amber-600"></i>Notes')
+    : '';
+
+const bulletList = text => {
+    const li = sentences(text).map(s => `<li>${esc(s)}</li>`).join('');
+    return li ? `<ul class="list-disc space-y-1 pl-4 marker:text-slate-400">${li}</ul>`
+              : '<p class="italic text-slate-400">None specified.</p>';
+};
+
+const kdBlock = (kind, text) => {
+    const t = TONES[kind];
+    return `<div class="rounded-xl border ${t.box} p-3">
+        <div class="mb-1.5 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide ${t.head}"><i class="fa-solid ${t.icon}"></i>${t.title}</div>
+        <div class="text-[13px] leading-relaxed text-slate-700">${bulletList(text)}</div>
+    </div>`;
+};
+const knowDo = item => `<div class="space-y-2">${kdBlock('know', item.know)}${kdBlock('do', item.do)}</div>`;
+
+const subSubLine = item => item.subSub ? `<p class="text-xs font-medium text-indigo-600">${esc(item.subSub)}</p>` : '';
+
+const fold = (summary, body, { open = false, cls = '', sumCls = '' } = {}) =>
+    `<details ${open ? 'open' : ''} class="${cls}"><summary class="cursor-pointer select-none ${sumCls}">${summary}</summary>${body}</details>`;
+
+const areaBar = (area, count, chevron = '') => `
+    <span class="flex min-w-0 items-center gap-2 font-bold uppercase tracking-wide"><i class="fa-solid fa-layer-group"></i><span class="truncate">${esc(area)}</span></span>
+    <span class="flex shrink-0 items-center gap-3"><span class="rounded-lg bg-white/20 px-2.5 py-1 text-xs font-medium">${count} items</span>${chevron}</span>`;
+
+const strandBar = (strand, count) => `
+    <span class="flex items-center gap-2 font-semibold text-slate-900"><i class="fa-solid fa-compass text-indigo-600"></i>${esc(strand)}</span>
+    <span class="flex shrink-0 items-center gap-2 text-xs text-slate-500">${count} records ${CHEV_DOWN}</span>`;
+
+/* ---- Item card ---- */
+const itemCard = item => `
+<article class="panel flex flex-col gap-3 p-4 transition hover:border-indigo-300 hover:shadow-md">
+    <div class="flex flex-wrap items-center justify-between gap-2">${levelBadge(item.level)}${notesBtn(item)}</div>
+    <div>
+        <p class="label">${esc(item.strand)}</p>
+        <h4 class="font-semibold text-slate-900">${esc(item.subStrand)}</h4>
+        ${subSubLine(item)}
+    </div>
+    <div>
+        <p class="label mb-0.5">Understanding</p>
+        <p class="font-medium leading-snug text-slate-900">${esc(item.statement) || '<span class="italic text-slate-400">No statement specified.</span>'}</p>
+    </div>
+    ${knowDo(item)}
+    ${openBtn(item, 'mt-auto self-end text-xs font-semibold text-indigo-600 hover:underline', 'View full details')}
+</article>`;
+
+const cardGrid = items => `<div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">${items.map(itemCard).join('')}</div>`;
+
+/* ---- View: cards ---- */
+const renderCards = (pageItems, totals) =>
+    groupBy(pageItems, i => i.area).map(([area, list]) => `
+        <section class="space-y-3">
+            <div class="section-bar">${areaBar(area, totals[area])}</div>
+            ${cardGrid(list)}
+        </section>`).join('');
+
+/* ---- View: table (area > strand > sub-strand, progression across levels) ---- */
+const renderTable = items =>
+    groupBy(items, i => i.area).map(([area, list]) => fold(
+        areaBar(area, list.length, CHEV_DOWN),
+        groupBy(list, i => i.strand).map(([strand, sl]) => fold(
+            strandBar(strand, sl.length),
+            `<div class="space-y-3 bg-white p-3 sm:p-4">${
+                groupBy(sl, i => i.subStrand).map(([sub, ssl]) => `
+                    <div class="space-y-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+                        <h4 class="flex items-center gap-2 font-bold text-indigo-900">
+                            <i class="fa-solid fa-tag text-xs text-indigo-500"></i>${esc(sub)}
+                            <span class="ml-auto rounded-md bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-700">${ssl.length} level${ssl.length > 1 ? 's' : ''}</span>
+                        </h4>
+                        ${cardGrid(ssl)}
+                    </div>`).join('')
+            }</div>`,
+            { open: true, sumCls: 'flex items-center justify-between gap-3 border-y border-slate-200 bg-slate-100 px-4 py-3' }
+        )).join(''),
+        { open: true, cls: 'panel overflow-hidden', sumCls: 'section-bar rounded-none' }
+    )).join('');
+
+/* ---- View: tree (level > area > strand > sub-strand) ---- */
+const treeLeaf = item => `
+    <div class="flex flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+        <div class="flex items-center justify-between gap-2">${levelBadge(item.level)}${notesBtn(item)}</div>
+        <h5 class="font-semibold text-slate-900">${esc(item.subStrand)}</h5>
+        ${subSubLine(item)}
+        <p class="text-[13px] leading-snug text-slate-600">${esc(item.statement)}</p>
+        <details>
+            <summary class="cursor-pointer select-none text-xs font-semibold text-indigo-600">Know &amp; Do</summary>
+            <div class="mt-2">${knowDo(item)}</div>
+        </details>
+        ${openBtn(item, 'self-end text-xs font-medium text-slate-500 underline hover:text-slate-800', 'Open details')}
+    </div>`;
+
+const treeStrand = (strand, list) => fold(
+    `<span class="flex items-center gap-2 font-semibold text-indigo-950">${CHEV}<i class="fa-solid fa-compass text-indigo-600"></i>${esc(strand)}</span>
+     <span class="shrink-0 rounded bg-indigo-100 px-2 py-0.5 text-[11px] font-medium text-indigo-800">${list.length}</span>`,
+    `<div class="grid gap-2.5 border-t border-slate-200 bg-white p-3 sm:grid-cols-2 xl:grid-cols-3">${list.map(treeLeaf).join('')}</div>`,
+    { cls: 'overflow-hidden rounded-lg border border-slate-200', sumCls: 'flex items-center justify-between gap-2 bg-indigo-50/60 p-2.5 hover:bg-indigo-100/60' }
+);
+
+const treeArea = (area, list) => fold(
+    `<span class="flex min-w-0 items-center gap-2 font-bold uppercase text-slate-800">${CHEV}<i class="fa-solid fa-layer-group text-indigo-600"></i><span class="truncate">${esc(area)}</span></span>
+     <span class="shrink-0 rounded bg-slate-200 px-2 py-0.5 text-[11px] font-medium text-slate-700">${list.length}</span>`,
+    `<div class="space-y-2 border-t border-slate-200 bg-white p-2.5">${groupBy(list, i => i.strand).map(([s, l]) => treeStrand(s, l)).join('')}</div>`,
+    { cls: 'overflow-hidden rounded-lg border border-slate-200', sumCls: 'flex items-center justify-between gap-2 bg-slate-100 p-2.5 hover:bg-slate-200/60' }
+);
+
+const renderTree = items => `<div class="panel space-y-3 p-3 sm:p-4">
+    <p class="text-xs text-slate-500">Tap a level to expand its areas, strands and sub-strands.</p>
+    ${groupBy(items, i => i.level, levelCmp).map(([lvl, list]) => fold(
+        `<span class="flex items-center gap-2.5">${CHEV}${levelBadge(lvl)}</span><span class="rounded-md bg-white/20 px-2.5 py-0.5 text-xs font-medium">${list.length} items</span>`,
+        `<div class="space-y-2.5 bg-white p-3">${groupBy(list, i => i.area).map(([a, l]) => treeArea(a, l)).join('')}</div>`,
+        { cls: 'overflow-hidden rounded-xl border border-slate-200', sumCls: 'flex items-center justify-between gap-2 bg-gradient-to-r from-indigo-900 to-violet-900 p-3 text-white' }
+    )).join('')}
+</div>`;
+
+/* ---- View: understanding matrix ---- */
+const matrixCell = items => {
+    if (!items.length) return '<span class="block py-2 text-center text-slate-300">—</span>';
+    return `<div class="space-y-3">${groupBy(items, i => i.statement || 'No understanding statement.', () => 0).map(([stmt, group]) => {
+        const noted = group.find(i => i.notes);
+        return `<div class="space-y-1.5">
+            <div class="flex items-start justify-between gap-2">
+                <p class="font-medium leading-snug text-slate-900">${esc(stmt)}</p>${noted ? notesBtn(noted) : ''}
+            </div>
+            <div class="flex flex-wrap gap-1">${group.map(i => openBtn(i,
+                'rounded-md border border-indigo-100 bg-indigo-50 px-2 py-1 text-left text-xs font-medium text-indigo-700 transition hover:bg-indigo-600 hover:text-white',
+                `<i class="fa-solid fa-tag mr-1 text-[10px] opacity-70"></i>${esc(i.subStrand)}${i.subSub ? ` <span class="opacity-75">(${esc(i.subSub)})</span>` : ''}`)).join('')}</div>
+        </div>`;
+    }).join('')}</div>`;
+};
+
+const renderUnderstanding = (items, rowsBy) =>
+    groupBy(items, i => i.area).map(([area, list]) => {
+        const levels = uniq(list.map(i => i.level), levelCmp);
+        const strands = uniq(list.map(i => i.strand));
+        const byLevel = rowsBy === 'level';
+        const rows = byLevel ? levels : strands;
+        const cols = byLevel ? strands : levels;
+        const levelHead = v => levelBadge(v);
+        const textHead = v => `<span class="font-semibold text-slate-800">${esc(v)}</span>`;
+        const rowHead = byLevel ? levelHead : textHead;
+        const colHead = byLevel ? textHead : levelHead;
+
+        const body = rows.map(r => `<tr>
+            <th scope="row" class="sticky left-0 z-10 w-28 min-w-[7rem] border-r border-slate-200 bg-slate-50 p-3 text-left align-top sm:w-40">${rowHead(r)}</th>
+            ${cols.map(c => `<td class="min-w-[15rem] border-r border-slate-100 p-3 align-top">${matrixCell(
+                list.filter(i => byLevel ? (i.level === r && i.strand === c) : (i.strand === r && i.level === c))
+            )}</td>`).join('')}
+        </tr>`).join('');
+
+        return `<section class="panel overflow-hidden">
+            <div class="section-bar rounded-none">${areaBar(area, list.length)}</div>
+            <div class="overflow-x-auto">
+                <table class="w-full border-collapse text-[13px]">
+                    <thead><tr class="border-b border-slate-200 bg-slate-50">
+                        <th class="label sticky left-0 z-10 bg-slate-50 p-3 text-left">${byLevel ? 'Level / Strand' : 'Strand / Level'}</th>
+                        ${cols.map(c => `<th class="min-w-[15rem] border-r border-slate-200 p-3 text-left">${colHead(c)}</th>`).join('')}
+                    </tr></thead>
+                    <tbody class="divide-y divide-slate-100">${body}</tbody>
+                </table>
+            </div>
+        </section>`;
+    }).join('');
+
+/* ---- View: Know & Do matrix ---- */
+const kdRow = item => `
+    <div class="grid gap-3 p-4 ${KD_COLS} md:gap-4">
+        <div class="space-y-1.5">
+            <div class="flex flex-wrap items-center gap-2">${levelBadge(item.level)}${notesBtn(item)}</div>
+            <p class="label">${esc(item.strand)}</p>
+            <h4 class="font-semibold text-slate-900">${esc(item.subStrand)}</h4>
+            ${subSubLine(item)}
+            <p class="text-[13px] font-medium leading-snug text-slate-700">${esc(item.statement)}</p>
+        </div>
+        <div class="text-[13px] leading-relaxed text-slate-700"><p class="label mb-1 md:hidden">Know</p>${bulletList(item.know)}</div>
+        <div class="text-[13px] leading-relaxed text-slate-700"><p class="label mb-1 md:hidden">Do</p>${bulletList(item.do)}</div>
+    </div>`;
+
+const renderKnowDo = items =>
+    groupBy(items, i => i.area).map(([area, list]) => {
+        const rows = [...list].sort((a, b) =>
+            a.strand.localeCompare(b.strand) || a.subStrand.localeCompare(b.subStrand) || levelCmp(a.level, b.level));
+        return `<section class="panel overflow-hidden">
+            <div class="section-bar rounded-none">${areaBar(area, list.length)}</div>
+            <div class="label hidden gap-4 border-b border-slate-200 bg-slate-50 px-4 py-2 md:grid ${KD_COLS}">
+                <span>Strand · Sub-strand</span><span>Know</span><span>Do</span>
+            </div>
+            <div class="divide-y divide-slate-100">${rows.map(kdRow).join('')}</div>
+        </section>`;
+    }).join('');
+
+/* ---- Modal ---- */
+const renderDetail = item => {
+    const notes = parseNotes(item.notes).map(b => `
+        <div class="space-y-1">
+            ${b.heading ? `<div class="text-xs font-bold text-amber-900 underline">${esc(b.heading)}</div>` : ''}
+            <ul class="list-disc space-y-0.5 pl-5">${b.bullets.map(x => `<li>${esc(x)}</li>`).join('')}</ul>
+        </div>`).join('');
+    return `<div class="space-y-4">
+        <div class="grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:grid-cols-2">
+            <div><p class="label">Strand</p><p class="font-semibold">${esc(item.strand)}</p></div>
+            <div><p class="label">Sub-strand</p><p class="font-semibold">${esc(item.subStrand)}</p>${subSubLine(item)}</div>
+        </div>
+        <div><p class="label mb-0.5">Understanding statement</p><p class="font-medium leading-relaxed text-slate-900">${esc(item.statement)}</p></div>
+        ${notes ? `<div class="space-y-2 rounded-xl border border-amber-200 bg-amber-50/70 p-3 text-[13px] leading-relaxed text-slate-700">
+            <p class="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-amber-800"><i class="fa-solid fa-note-sticky"></i>Curriculum notes</p>${notes}</div>` : ''}
+        ${knowDo(item)}
+    </div>`;
+};
+
+/* =========================================================================
+   Alpine app
+   ========================================================================= */
+function kduApp() {
+    return {
+        // static config exposed to the template
+        views: VIEWS, filterGroups: FILTER_GROUPS, purpose: PURPOSE, levelClass,
+
+        // data
+        loading: true, error: null,
+        items: [], filtered: [], areaOptions: [],
+        options: { levels: [], strands: [], subStrands: [] },
+
+        // ui state
+        view: 'cards', matrixRows: 'level',
+        search: '', area: '',
+        selected: { levels: [], strands: [], subStrands: [] },
+        filtersOpen: false,
+        page: 1,
+        modalOpen: false, activeItem: null,
+
+        /* ---------- lifecycle ---------- */
+        init() {
+            this.filtersOpen = window.matchMedia('(min-width: 1024px)').matches;
+            this.$watch('search', () => this.refresh());
+            this.$watch('area', () => this.refresh());
+            this.$watch('modalOpen', open => document.body.classList.toggle('overflow-hidden', open));
+
+            // Expand every collapsible section while printing, then restore
+            let collapsed = [];
+            window.addEventListener('beforeprint', () => {
+                collapsed = [...document.querySelectorAll('details:not([open])')];
+                collapsed.forEach(d => d.open = true);
+            });
+            window.addEventListener('afterprint', () => collapsed.forEach(d => d.open = false));
+
+            this.load();
+        },
+
+        async load() {
+            this.loading = true;
+            this.error = null;
+            try {
+                const res = await fetch(CSV_URL);
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                this.items = rowsToItems(parseCsv(await res.text()));
+                this.areaOptions = uniq(this.items.map(i => i.area));
+                this.refresh();
+            } catch (err) {
+                console.error(err);
+                this.error = 'Could not fetch the curriculum data. Check your connection or the CSV link and try again.';
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        /* ---------- filtering ---------- */
+        /** Empty selection = no restriction. Options cascade: area → levels → strands → sub-strands. */
+        refresh() {
+            const match = (sel, v) => !sel.length || sel.includes(v);
+            const prune = key => {
+                const valid = this.selected[key].filter(v => this.options[key].includes(v));
+                if (valid.length !== this.selected[key].length) this.selected[key] = valid;
+            };
+
+            const inArea = this.items.filter(i => !this.area || i.area === this.area);
+            this.options.levels = uniq(inArea.map(i => i.level), levelCmp);
+            prune('levels');
+
+            const inLevel = inArea.filter(i => match(this.selected.levels, i.level));
+            this.options.strands = uniq(inLevel.map(i => i.strand));
+            prune('strands');
+
+            const inStrand = inLevel.filter(i => match(this.selected.strands, i.strand));
+            this.options.subStrands = uniq(inStrand.map(i => i.subStrand));
+            prune('subStrands');
+
+            const q = this.search.trim().toLowerCase();
+            const fields = ['statement', 'know', 'do', 'strand', 'subStrand', 'subSub', 'area', 'level'];
+            this.filtered = inStrand
+                .filter(i => match(this.selected.subStrands, i.subStrand))
+                .filter(i => !q || fields.some(f => i[f].toLowerCase().includes(q)))
+                .sort((a, b) => levelCmp(a.level, b.level) || a.id - b.id);
+            this.page = 1;
+        },
+
+        toggle(key, value) {
+            const cur = this.selected[key];
+            this.selected[key] = cur.includes(value) ? cur.filter(v => v !== value) : [...cur, value];
+            this.refresh();
+        },
+        clearGroup(key) { this.selected[key] = []; this.refresh(); },
+        resetFilters() {
+            this.search = '';
+            this.area = '';
+            this.selected = { levels: [], strands: [], subStrands: [] };
+            this.refresh();
+        },
+
+        /* ---------- derived ---------- */
+        get activeFilterCount() {
+            return (this.area ? 1 : 0) + Object.values(this.selected).reduce((n, a) => n + a.length, 0);
+        },
+        get showPurpose() { return !!this.area && this.area.toLowerCase().includes(PURPOSE.match); },
+        get totalPages() { return Math.max(1, Math.ceil(this.filtered.length / PAGE_SIZE)); },
+
+        get viewHtml() {
+            const items = this.filtered;
+            switch (this.view) {
+                case 'table':         return renderTable(items);
+                case 'tree':          return renderTree(items);
+                case 'understanding': return renderUnderstanding(items, this.matrixRows);
+                case 'knowdo':        return renderKnowDo(items);
+                default: {
+                    const start = (this.page - 1) * PAGE_SIZE;
+                    const totals = {};
+                    items.forEach(i => totals[i.area] = (totals[i.area] || 0) + 1);
+                    return renderCards(items.slice(start, start + PAGE_SIZE), totals);
+                }
+            }
+        },
+        get modalHtml() { return this.activeItem ? renderDetail(this.activeItem) : ''; },
+
+        /* ---------- actions ---------- */
+        goPage(n) {
+            this.page = Math.min(Math.max(1, n), this.totalPages);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        },
+        onContentClick(e) {
+            const btn = e.target.closest('[data-open]');
+            if (!btn) return;
+            this.activeItem = this.items.find(i => i.id === Number(btn.dataset.open)) || null;
+            this.modalOpen = !!this.activeItem;
+        },
+        closeModal() { this.modalOpen = false; },
+        exportPdf() { window.print(); },
+    };
+}
+</script>
+</body>
+</html>
