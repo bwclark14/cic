@@ -49,6 +49,21 @@
                 border-radius: .4rem; background: #eef2ff; color: #3730a3; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em;
             }
         }
+        /* Hierarchy tree: elbow connectors between parent and child nodes */
+        .tree { --indent: 1.1rem; --gap: 1.35rem; --line: #cbd5e1; }
+        .tree-children { position: relative; margin-left: var(--indent); padding-left: var(--gap); }
+        .tree-node { position: relative; padding-top: .6rem; }
+        .tree-node::before {            /* vertical trunk */
+            content: ""; position: absolute; left: calc(-1 * var(--gap)); top: 0; bottom: 0;
+            border-left: 2px solid var(--line);
+        }
+        .tree-node:last-child::before { bottom: auto; height: 1.95rem; }
+        .tree-node::after {             /* horizontal elbow */
+            content: ""; position: absolute; left: calc(-1 * var(--gap)); top: 1.95rem; width: var(--gap);
+            border-top: 2px solid var(--line);
+        }
+        .tree-label { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: .75rem; text-align: left; border-radius: .75rem; padding: .55rem .8rem; }
+        @media (max-width: 640px) { .tree { --indent: .45rem; --gap: 1rem; } }
         @media print {
             body { background: #fff !important; }
             header, .no-print { display: none !important; }
