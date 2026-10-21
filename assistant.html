@@ -56,6 +56,7 @@
     <div id="toast" class="pointer-events-none fixed inset-x-0 bottom-20 z-50 flex justify-center px-4 opacity-0 transition-opacity"></div>
 
     <script src="cic-data.js"></script>
+    <script src="assistant-config.js"></script>
     <script>
     (() => {
     'use strict';
@@ -84,11 +85,13 @@
         ['a whole term', 'A whole term']
     ];
     const APPROACHES = ['Hands-on / practical', 'Outdoor learning', 'Digital technology', 'Collaborative group work', 'Cross-curricular links', 'Real-world / community links', 'Play-based', 'Low-cost resources', 'Talk and discussion', 'Creative / expressive'];
-    const MODELS = [
-        ['claude-sonnet-5-5', 'Claude Sonnet 5.5: balanced (recommended)'],
-        ['claude-opus-5-5', 'Claude Opus 5.5: highest quality, slower'],
-        ['claude-haiku-5-5', 'Claude Haiku 5.5: fastest, lighter']
-    ];
+    // Set in assistant-config.js (loaded before this script). Models are tried in order if one is unavailable or out of quota.
+    const CFG = Object.assign({
+        proxyUrl: '', geminiKey: '',
+        models: ['gemini-3.8-flash', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite'],
+        minSecondsBetween: 8, maxPerDay: 40
+    }, window.CIC_ASSISTANT || {});
+    const KEY_STORE = 'cic-assistant-gemini-key', USE_STORE = 'cic-assistant-usage';
     const PAGE = 15, MAX_STATEMENTS = 60, STORE_KEY = 'cic-assistant-v1';
 
     /* =====================================================================
@@ -100,7 +103,7 @@
         sel: new Map(),                      // item id -> { knows:Set<index>, dos:Set<index> }
         limit: PAGE,
         ctx: { targetLevel: 'auto', timeframe: 1, kind: 'both', count: 4, approaches: new Set(), group: '', notes: '', assessment: true, differentiation: true },
-        ai: { key: '', remember: false, model: MODELS[0][0] },
+        ai: { key: '' },   // only used when assistant-config.js has no shared key
         gen: { running: false, text: '', error: null, suggestions: null, truncated: false, controller: null, prompt: null }
     };
     window.__assistant = state;
@@ -109,12 +112,10 @@
     const $$ = (s, r = document) => [...r.querySelectorAll(s)];
     const str = v => (typeof v === 'string' ? v : v == null ? '' : String(v));
 
-    /* ---- persistence (preferences only; the API key is kept only if the user ticks "Remember") ---- */
+    /* ---- persistence (preferences only) ---- */
     function loadStore() {
         try {
             const d = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
-            if (d.model && MODELS.some(m => m[0] === d.model)) state.ai.model = d.model;
-            if (d.remember) { state.ai.remember = true; state.ai.key = str(d.key); }
             if (d.ctx) {
                 const c = d.ctx;
                 if (c.targetLevel) state.ctx.targetLevel = str(c.targetLevel);
@@ -127,11 +128,11 @@
             }
         } catch (e) { /* storage unavailable or corrupt: carry on with defaults */ }
     }
+    function loadKey() { try { state.ai.key = str(localStorage.getItem(KEY_STORE)); } catch (e) { /* ignore */ } }
     function saveStore() {
         try {
             const c = state.ctx;
             localStorage.setItem(STORE_KEY, JSON.stringify({
-                model: state.ai.model, remember: state.ai.remember, key: state.ai.remember ? state.ai.key : '',
                 ctx: { targetLevel: c.targetLevel, timeframe: c.timeframe, kind: c.kind, count: c.count, approaches: [...c.approaches], assessment: c.assessment, differentiation: c.differentiation, group: c.group }
             }));
         } catch (e) { /* ignore */ }
@@ -251,39 +252,62 @@ Field guidance: "overview" is 2 to 3 sentences. "ageNote" is one sentence on why
     /* =====================================================================
        Calling the model (streams so long answers show progress)
        ===================================================================== */
-    class ApiError extends Error { constructor(status, msg) { super(msg); this.status = status; } }
+    class ApiError extends Error { constructor(status, msg, code) { super(msg); this.status = status; this.code = code || ''; } }
 
-    async function callModel({ system, user }, { key, model }, signal, onText) {
-        const res = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST', signal,
-            headers: {
-                'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01',
-                'anthropic-dangerous-direct-browser-access': 'true'
-            },
-            body: JSON.stringify({ model, max_tokens: 8000, stream: true, system, messages: [{ role: 'user', content: user }] })
+    // Streams a reply from Google Gemini (REST, server-sent events).
+    async function callGemini({ system, user }, key, model, signal, onText) {
+        const base = CFG.proxyUrl ? CFG.proxyUrl.replace(/\/+$/, '') + '/v1beta' : 'https://generativelanguage.googleapis.com/v1beta';
+        const url = `${base}/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`;
+        const headers = { 'content-type': 'application/json' };
+        if (!CFG.proxyUrl) headers['x-goog-api-key'] = key;      // with a proxy, the key lives on the proxy and never in the browser
+        const res = await fetch(url, {
+            method: 'POST', signal, headers,
+            body: JSON.stringify({
+                systemInstruction: { parts: [{ text: system }] },
+                contents: [{ role: 'user', parts: [{ text: user }] }],
+                generationConfig: { maxOutputTokens: 16000, temperature: 0.8, responseMimeType: 'application/json' }
+            })
         });
         if (!res.ok) {
-            let msg = '';
-            try { const j = await res.json(); msg = j && j.error && j.error.message; } catch (e) { /* not json */ }
-            throw new ApiError(res.status, msg || res.statusText || 'Request failed');
+            let msg = '', code = '';
+            try { const j = await res.json(); msg = j && j.error && j.error.message; code = (j && j.error && j.error.status) || ''; } catch (e) { /* not json */ }
+            throw new ApiError(res.status, msg || res.statusText || 'Request failed', code);
         }
         const reader = res.body.getReader(), dec = new TextDecoder();
         let buf = '', text = '', stop = '';
+        const handle = line => {
+            line = line.trim();
+            if (!line.startsWith('data:')) return;
+            let ev; try { ev = JSON.parse(line.slice(5)); } catch (e) { return; }
+            if (ev.error) throw new ApiError(ev.error.code || 0, ev.error.message || 'Gemini returned an error', ev.error.status);
+            if (ev.promptFeedback && ev.promptFeedback.blockReason) throw new ApiError(0, `Gemini declined this request (${ev.promptFeedback.blockReason}). Try rewording your notes.`);
+            const cand = ev.candidates && ev.candidates[0];
+            if (!cand) return;
+            const parts = (cand.content && cand.content.parts) || [];
+            parts.forEach(p => { if (p.text && !p.thought) { text += p.text; onText(text); } });
+            if (cand.finishReason) stop = cand.finishReason === 'MAX_TOKENS' ? 'max_tokens' : /SAFETY|PROHIBITED|BLOCKLIST|RECITATION|SPII/.test(cand.finishReason) ? 'blocked' : 'end_turn';
+        };
         for (;;) {
             const { done, value } = await reader.read();
             if (done) break;
             buf += dec.decode(value, { stream: true });
             let nl;
-            while ((nl = buf.indexOf('\n')) >= 0) {
-                const line = buf.slice(0, nl).trim(); buf = buf.slice(nl + 1);
-                if (!line.startsWith('data:')) continue;
-                let ev; try { ev = JSON.parse(line.slice(5)); } catch (e) { continue; }
-                if (ev.type === 'content_block_delta' && ev.delta && ev.delta.type === 'text_delta') { text += ev.delta.text; onText(text); }
-                else if (ev.type === 'message_delta' && ev.delta && ev.delta.stop_reason) stop = ev.delta.stop_reason;
-                else if (ev.type === 'error') throw new ApiError(0, (ev.error && ev.error.message) || 'The model returned an error');
-            }
+            while ((nl = buf.indexOf('\n')) >= 0) { handle(buf.slice(0, nl)); buf = buf.slice(nl + 1); }
         }
+        if (buf.trim()) handle(buf);
+        if (!text && stop === 'blocked') throw new ApiError(0, 'Gemini declined to answer this one. Try rewording your notes or choosing different statements.');
         return { text, stop };
+    }
+
+    // Soft limits per browser (a deterrent, not real security): a short pause between requests and a daily cap.
+    function usageGate() {
+        const today = new Date().toISOString().slice(0, 10);
+        let u = { day: today, n: 0, last: 0 };
+        try { const d = JSON.parse(localStorage.getItem(USE_STORE) || '{}'); if (d.day === today) u = { day: today, n: Number(d.n) || 0, last: Number(d.last) || 0 }; } catch (e) { /* ignore */ }
+        const wait = Math.ceil((u.last + CFG.minSecondsBetween * 1000 - Date.now()) / 1000);
+        if (wait > 0) return { ok: false, msg: `Please wait ${wait} second${wait === 1 ? '' : 's'} before generating again.` };
+        if (u.n >= CFG.maxPerDay) return { ok: false, msg: `You've reached today's limit of ${CFG.maxPerDay} generations on this device. Please try again tomorrow, or use Copy prompt.` };
+        return { ok: true, record() { try { localStorage.setItem(USE_STORE, JSON.stringify({ day: today, n: u.n + 1, last: Date.now() })); } catch (e) { /* ignore */ } } };
     }
 
     // Pulls each complete suggestion object out of the reply, so a reply cut short (or wrapped in a code fence) still yields every finished idea.
@@ -448,15 +472,12 @@ Field guidance: "overview" is 2 to 3 sentences. "ageNote" is one sentence on why
         </section>
 
         <section class="panel space-y-4 p-4 sm:p-5">
-            ${stepHead(3, 'Generate', 'Suggestions are written by an AI model using your own Anthropic API key. Always review them before using them with learners.')}
-            <div class="grid gap-3 md:grid-cols-2">
-                <div><label class="label" for="aiKey">Anthropic API key</label>
-                    <div class="relative"><input id="aiKey" type="password" autocomplete="off" spellcheck="false" class="field pr-10 font-mono" data-ai="key" placeholder="sk-ant-…" value="${esc(state.ai.key)}">
-                    <button type="button" data-act="show-key" class="absolute right-2 top-1/2 -translate-y-1/2 px-2 text-slate-400 hover:text-slate-700" title="Show or hide the key"><i class="fa-solid fa-eye"></i></button></div>
-                    <label class="mt-2 flex items-center gap-2 text-xs text-slate-600"><input type="checkbox" class="h-4 w-4 rounded border-slate-300 text-indigo-600" data-ai="remember"${state.ai.remember ? ' checked' : ''}>Remember the key on this device (not on a shared computer)</label></div>
-                <div><label class="label" for="aiModel">Model</label><select id="aiModel" class="field" data-ai="model">${MODELS.map(m => `<option value="${m[0]}"${m[0] === state.ai.model ? ' selected' : ''}>${esc(m[1])}</option>`).join('')}</select></div>
-            </div>
-            <div class="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs leading-relaxed text-slate-600"><i class="fa-solid fa-shield-halved mr-1.5 text-indigo-500"></i>Your key stays in this browser and is sent only to Anthropic (api.anthropic.com) to make the request. Your selected curriculum statements and the context above are sent too, so don't include pupils' names or personal details. Get a key at <b>console.anthropic.com</b>. No key? Use <b>Copy prompt</b> and paste it into any AI chat.</div>
+            ${stepHead(3, 'Generate', 'Ideas are written by Google Gemini. Always review them before using them with learners.')}
+            ${(CFG.geminiKey || CFG.proxyUrl) ? '' : `<div class="max-w-xl"><label class="label" for="aiKey">Gemini API key</label>
+                <div class="relative"><input id="aiKey" type="password" autocomplete="off" spellcheck="false" class="field pr-10 font-mono" data-ai="key" placeholder="Paste your key" value="${esc(state.ai.key)}">
+                <button type="button" data-act="show-key" class="absolute right-2 top-1/2 -translate-y-1/2 px-2 text-slate-400 hover:text-slate-700" title="Show or hide the key"><i class="fa-solid fa-eye"></i></button></div>
+                <p class="mt-1.5 text-xs text-slate-500">No shared key is set up, so paste your own. You can get a free one at <b>aistudio.google.com/apikey</b>. It is kept in this browser only.</p></div>`}
+            <div class="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs leading-relaxed text-slate-600"><i class="fa-solid fa-shield-halved mr-1.5 text-indigo-500"></i>Your selected curriculum statements and the context above are sent to Google's Gemini service to write the ideas. Please don't include pupils' names or personal details. The free Gemini service may use prompts to improve Google's products, so check this against your school's data policy. Prefer another AI tool? Use <b>Copy prompt</b> and paste it there.</div>
             <div class="flex flex-wrap items-center gap-2">
                 <button data-act="generate" id="genBtn" class="btn border-indigo-600 bg-indigo-600 px-5 py-2.5 text-white hover:bg-indigo-700"><i class="fa-solid fa-wand-magic-sparkles"></i>Generate suggestions</button>
                 <button data-act="copy-prompt" class="btn border-slate-200 bg-white text-slate-700 hover:bg-slate-50"><i class="fa-regular fa-copy"></i>Copy prompt</button>
@@ -528,7 +549,7 @@ Field guidance: "overview" is 2 to 3 sentences. "ageNote" is one sentence on why
             <button data-act="generate" class="btn border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 !py-1.5 text-xs"><i class="fa-solid fa-rotate"></i>Regenerate</button></div></div>
             ${g.truncated ? '<p class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">The reply was cut off, so the last idea may be missing. Try fewer ideas, or turn off assessment or differentiation.</p>' : ''}
             ${g.suggestions.map((s, i) => suggestionHtml(s, i, refs)).join('')}
-            <p class="text-center text-xs text-slate-400">AI-generated. Please check every idea for accuracy, safety and suitability before using it with learners.</p>`;
+            <p class="text-center text-xs text-slate-400">AI-generated${g.modelUsed ? ' by Google Gemini (' + esc(g.modelUsed) + ')' : ''}. Please check every idea for accuracy, safety and suitability before using it with learners.</p>`;
     }
 
     /* =====================================================================
@@ -571,8 +592,11 @@ Field guidance: "overview" is 2 to 3 sentences. "ageNote" is one sentence on why
         const p = buildPrompt();
         if (!p.selection.total) { toast('Choose some curriculum statements first.'); $('#records') && $('#records').scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
         if (p.selection.total > MAX_STATEMENTS) { toast(`Please narrow the selection to ${MAX_STATEMENTS} statements or fewer.`); $('#contextSec').scrollIntoView({ behavior: 'smooth' }); return; }
-        const key = state.ai.key.trim();
-        if (!key) { toast('Add your Anthropic API key, or use Copy prompt.'); $('#aiKey').focus(); return; }
+        const key = CFG.proxyUrl ? 'via-proxy' : (CFG.geminiKey || state.ai.key).trim();
+        if (!key) { toast('Add a Gemini API key, or use Copy prompt.'); const k = $('#aiKey'); if (k) k.focus(); return; }
+        const gate = usageGate();
+        if (!gate.ok) { toast(gate.msg); return; }
+        gate.record();
 
         g.running = true; g.text = ''; g.error = null; g.suggestions = null; g.truncated = false;
         g.refs = refsFor(p.selection); g.levelText = p.target.levels.map(l => l.name).join(' + ');
@@ -581,9 +605,21 @@ Field guidance: "overview" is 2 to 3 sentences. "ageNote" is one sentence on why
         $('#results').scrollIntoView({ behavior: 'smooth', block: 'start' });
         let raf = 0;
         try {
-            const { text, stop } = await callModel(p, { key, model: state.ai.model }, g.controller.signal, t => {
-                g.text = t; if (!raf) raf = requestAnimationFrame(() => { raf = 0; if (g.running) renderResults(); });
-            });
+            let reply = null, lastErr = null;
+            for (const model of CFG.models) {
+                try {
+                    reply = await callGemini(p, key, model, g.controller.signal, t => {
+                        g.text = t; if (!raf) raf = requestAnimationFrame(() => { raf = 0; if (g.running) renderResults(); });
+                    });
+                    g.modelUsed = model; break;
+                } catch (err) {
+                    const retry = err instanceof ApiError && ([404, 429, 500, 502, 503, 504].includes(err.status) || (err.status === 400 && /model/i.test(err.message) && !/api key/i.test(err.message)));
+                    if (!retry) throw err;
+                    lastErr = err; g.text = '';          // this model is unavailable or out of quota: try the next one
+                }
+            }
+            if (!reply) throw lastErr || new Error('No Gemini model was available.');
+            const { text, stop } = reply;
             g.text = text;
             const valid = new Set(g.refs.keys());
             const found = extractSuggestions(text).map(r => cleanSuggestion(r, valid));
@@ -591,11 +627,13 @@ Field guidance: "overview" is 2 to 3 sentences. "ageNote" is one sentence on why
             g.suggestions = found; g.truncated = stop === 'max_tokens';
         } catch (err) {
             if (err && err.name === 'AbortError') { g.error = null; g.suggestions = null; g.text = ''; }
-            else if (err instanceof ApiError && err.status === 401) g.error = 'Anthropic rejected the API key. Check it was copied in full and is still active.';
-            else if (err instanceof ApiError && err.status === 429) g.error = 'Too many requests, or the account is out of credit. Wait a moment and try again. ' + (err.message || '');
-            else if (err instanceof ApiError && err.status === 404) g.error = 'That model is not available to this key. Choose another model. ' + (err.message || '');
+            else if (err instanceof ApiError && (err.status === 401 || (err.status === 400 && /api key/i.test(err.message)))) g.error = 'Google did not accept the Gemini API key. It may have been copied wrongly, deleted or disabled. ' + (err.message || '');
+            else if (err instanceof ApiError && err.status === 403) g.error = 'Google refused the request. The key may be restricted to a different website, disabled, or not allowed to use Gemini. ' + (err.message || '');
+            else if (err instanceof ApiError && err.status === 429) g.error = 'The free Gemini allowance is used up for now. Please try again in a minute, or tomorrow if the daily limit has been reached. You can also use Copy prompt.';
+            else if (err instanceof ApiError && err.status === 404) g.error = 'None of the configured Gemini models are available to this key. ' + (err.message || '');
+            else if (err instanceof ApiError && err.status >= 500) g.error = 'Gemini is busy right now. Please try again shortly.';
             else if (err instanceof ApiError) g.error = (err.message || 'The request failed.') + (err.status ? ` (error ${err.status})` : '');
-            else if (err instanceof TypeError) g.error = 'Could not reach Anthropic. Check your internet connection, and that no school filter or browser extension is blocking api.anthropic.com.';
+            else if (err instanceof TypeError) g.error = 'Could not reach the Gemini service. Check your internet connection, and that no school filter or browser extension is blocking generativelanguage.googleapis.com.';
             else g.error = (err && err.message) || 'Something went wrong.';
         } finally { g.running = false; g.controller = null; renderResults(); }
     }
@@ -673,18 +711,13 @@ Field guidance: "overview" is 2 to 3 sentences. "ageNote" is one sentence on why
             else c[k] = t.value;
             saveStore(); refreshLevelHint(); renderSelBar(); return;
         }
-        if (t.dataset.ai) {
-            const k = t.dataset.ai;
-            if (k === 'remember') state.ai.remember = t.checked; else state.ai[k] = t.value;
-            saveStore();
-        }
     });
 
     document.addEventListener('input', e => {
         const t = e.target;
         if (t.dataset.act === 'search') { state.filters.search = t.value; state.limit = PAGE; renderRecords(); renderSelBar(); }
         else if (t.dataset.ctx === 'notes' || t.dataset.ctx === 'group') { state.ctx[t.dataset.ctx] = t.value; clearTimeout(input.t); input.t = setTimeout(saveStore, 400); }
-        else if (t.dataset.ai === 'key') { state.ai.key = t.value; clearTimeout(input.t); input.t = setTimeout(saveStore, 400); }
+        else if (t.dataset.ai === 'key') { state.ai.key = t.value; try { localStorage.setItem(KEY_STORE, t.value.trim()); } catch (e) { /* ignore */ } }
     });
     const input = {};
 
@@ -712,7 +745,7 @@ Field guidance: "overview" is 2 to 3 sentences. "ageNote" is one sentence on why
         state.loading = false; renderApp();
     }
 
-    loadStore();
+    loadStore(); loadKey();
     init();
     })();
     </script>
