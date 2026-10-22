@@ -1,0 +1,1411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KDU Explorer</title>
+
+    <link rel="stylesheet" href="tailwind.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+
+    <style>
+        [x-cloak] { display: none !important; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* Fit-to-width tables (Summary, Understanding Matrix, Know & Do): no sideways scrolling; stack on phones */
+        .fit-table { font-size: 12px; line-height: 1.35; }
+        .fit-table.is-dense, .fit-table.is-dense .text-xs { font-size: 11px; }
+        .fit-table ul, .fit-table p, .fit-table li, .fit-table button, .fit-table span { overflow-wrap: anywhere; }
+        .fit-table .badge { font-size: 10px; }
+        @media (max-width: 767px) {
+            .fit-table, .fit-table thead, .fit-table tbody, .fit-table tr,
+            .fit-table th.fit-area, .fit-table td { display: block; width: 100%; }
+            .fit-table thead { display: none; }
+            .fit-table tbody tr { border-bottom: 8px solid #f1f5f9; }
+            .fit-table th.fit-area { border-right: 0; padding: .6rem .8rem; }
+            .fit-table td { border-right: 0; border-top: 1px solid #f1f5f9; padding: .65rem .8rem; font-size: 13px; }
+            .fit-table td .text-xs { font-size: 12px; }
+            .fit-table td.fit-empty { display: none; }
+            .fit-table td::before {
+                content: attr(data-level); display: inline-block; margin-bottom: .4rem; padding: .1rem .5rem;
+                border-radius: .4rem; background: #eef2ff; color: #3730a3; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em;
+            }
+        }
+        /* Hierarchy tree: elbow connectors between parent and child nodes */
+        .tree { --indent: 1.1rem; --gap: 1.35rem; --line: #cbd5e1; }
+        .tree-children { position: relative; margin-left: var(--indent); padding-left: var(--gap); }
+        .tree-node { position: relative; padding-top: .6rem; }
+        .tree-node::before {            /* vertical trunk */
+            content: ""; position: absolute; left: calc(-1 * var(--gap)); top: 0; bottom: 0;
+            border-left: 2px solid var(--line);
+        }
+        .tree-node:last-child::before { bottom: auto; height: 1.95rem; }
+        .tree-node::after {             /* horizontal elbow */
+            content: ""; position: absolute; left: calc(-1 * var(--gap)); top: 1.95rem; width: var(--gap);
+            border-top: 2px solid var(--line);
+        }
+        .tree-label { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: .75rem; text-align: left; border-radius: .75rem; padding: .55rem .8rem; }
+        @media (max-width: 640px) { .tree { --indent: .45rem; --gap: 1rem; } }
+        @media print {
+            body { background: #fff !important; }
+            header, .no-print { display: none !important; }
+            .panel, .shadow-sm { box-shadow: none !important; }
+            .overflow-x-auto { overflow: visible !important; }
+        }
+    </style>
+</head>
+
+<body class="bg-slate-50 font-sans text-sm text-slate-800 antialiased selection:bg-indigo-500 selection:text-white"
+      x-data="curriculumApp()" @keydown.escape.window="closeModals()">
+
+    <!-- ============ Header ============ -->
+    <header class="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
+        <div class="mx-auto max-w-[1600px] space-y-3 px-4 py-3 sm:px-6">
+            <div class="flex items-center justify-between gap-3">
+                <div class="flex min-w-0 items-center gap-3">
+                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 text-white shadow-md shadow-indigo-200">
+                        <i class="fa-solid fa-graduation-cap"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <h1 class="truncate text-base font-bold leading-tight text-slate-900">KDU Explorer</h1>
+                        <p class="truncate text-xs text-slate-500">Know, Do and Understand Framework</p>
+                    </div>
+                </div>
+                <div class="no-print flex shrink-0 items-center gap-2">
+                    <a href="planner.html" title="Open the Teacher Learning Planner"
+                       class="btn border-indigo-600 bg-indigo-600 text-white hover:bg-indigo-700">
+                        <i class="fa-solid fa-clipboard-list"></i><span class="hidden sm:inline">Learning Planner</span>
+                    </a>
+                    <button @click="exportPdf()" title="Export PDF"
+                            class="btn border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100">
+                        <i class="fa-solid fa-file-pdf"></i><span class="hidden sm:inline">Export PDF</span>
+                    </button>
+                </div>
+            </div>
+
+            <nav class="no-scrollbar no-print -mx-4 flex gap-1.5 overflow-x-auto px-4 sm:mx-0 sm:px-0" aria-label="Views">
+                <template x-for="v in views" :key="v.id">
+                    <button @click="view = v.id"
+                            :class="view === v.id ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
+                            class="flex shrink-0 items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-semibold transition">
+                        <i :class="v.icon"></i><span x-text="v.label"></span>
+                    </button>
+                </template>
+            </nav>
+        </div>
+    </header>
+
+    <main class="mx-auto w-full max-w-[1600px] space-y-5 px-4 py-5 sm:px-6">
+
+        <!-- Loading -->
+        <template x-if="loading">
+            <div class="flex flex-col items-center justify-center space-y-4 py-24">
+                <div class="h-12 w-12 animate-spin rounded-full border-4 border-indigo-200 border-t-indigo-600"></div>
+                <p class="animate-pulse font-medium text-slate-600">Loading curriculum data…</p>
+            </div>
+        </template>
+
+        <!-- Error -->
+        <template x-if="error">
+            <div class="mx-auto my-10 max-w-lg rounded-2xl border border-red-200 bg-red-50 p-6 text-center shadow-sm">
+                <div class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-600">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
+                <h3 class="mb-1 font-semibold text-red-900">Failed to load curriculum</h3>
+                <p class="mb-4 text-red-600" x-text="error"></p>
+                <button @click="init()" class="btn border-red-600 bg-red-600 text-white hover:bg-red-700">Try again</button>
+            </div>
+        </template>
+
+        <template x-if="!loading && !error">
+            <div class="space-y-5">
+
+                <!-- Data warnings -->
+                <template x-if="warnings.length">
+                    <div class="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-900">
+                        <template x-for="w in warnings" :key="w">
+                            <p class="flex gap-2"><i class="fa-solid fa-circle-exclamation mt-0.5"></i><span x-text="w"></span></p>
+                        </template>
+                    </div>
+                </template>
+
+                <!-- ============ Filters ============ -->
+                <section x-show="view !== 'map'" class="panel no-print space-y-3 p-3 sm:p-4">
+                    <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                        <div class="relative flex-1">
+                            <i class="fa-solid fa-magnifying-glass pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                            <input type="search" :value="filters.search"
+                                   @input.debounce.250ms="setSearch($event.target.value)"
+                                   placeholder="Search the curriculum…"
+                                   class="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-4 focus:border-indigo-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200">
+                        </div>
+                        <div class="flex gap-2">
+                            <button @click="filtersOpen = !filtersOpen"
+                                    class="btn flex-1 border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 sm:flex-none">
+                                <i class="fa-solid fa-filter"></i>
+                                <span>Filters</span>
+                                <span x-show="activeFilterCount" class="rounded-full bg-indigo-600 px-1.5 text-[11px] text-white" x-text="activeFilterCount"></span>
+                                <i class="fa-solid fa-chevron-down text-[10px] transition-transform" :class="filtersOpen && 'rotate-180'"></i>
+                            </button>
+                            <button @click="resetFilters()" class="btn flex-1 border-slate-200 bg-white text-slate-600 hover:bg-slate-50 sm:flex-none">
+                                <i class="fa-solid fa-rotate-right"></i><span>Reset</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <p class="text-xs font-medium text-slate-500" x-text="filtered.length + ' of ' + items.length + ' records'"></p>
+
+                    <div x-show="filtersOpen" x-transition class="grid gap-4 border-t border-slate-100 pt-4 md:grid-cols-2">
+                        <!-- Area -->
+                        <div class="space-y-1.5">
+                            <label class="eyebrow" for="areaSelect">Curriculum area</label>
+                            <select id="areaSelect" x-model="filters.area" @change="apply()"
+                                    class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 font-medium focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-200">
+                                <option value="">All curriculum areas</option>
+                                <template x-for="a in allAreas" :key="a">
+                                    <option :value="a" x-text="a"></option>
+                                </template>
+                            </select>
+                        </div>
+
+                        <!-- Levels -->
+                        <div class="space-y-1.5">
+                            <div class="flex items-center justify-between">
+                                <span class="eyebrow">Levels</span>
+                                <button x-show="filters.levels.length" @click="clearFilter('levels')" class="text-xs font-medium text-indigo-600">Clear</button>
+                            </div>
+                            <div class="flex flex-wrap gap-1.5">
+                                <template x-for="l in options.levels" :key="l">
+                                    <button @click="toggleFilter('levels', l)" class="chip"
+                                            :class="filters.levels.includes(l) ? levelClass(l) + ' ring-2 ring-indigo-300' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'"
+                                            x-text="l"></button>
+                                </template>
+                            </div>
+                        </div>
+
+                        <!-- Strands & sub-strands: multi-select dropdowns -->
+                        <template x-for="f in multiFilters" :key="f.key">
+                            <div class="relative space-y-1.5" x-data="{ open: false, q: '' }" x-show="options[f.key].length"
+                                 @click.outside="open = false" @keydown.escape.stop="open = false">
+                                <div class="flex items-center justify-between">
+                                    <span class="eyebrow" x-text="f.label"></span>
+                                    <button x-show="filters[f.key].length" @click="clearFilter(f.key)" class="text-xs font-medium text-indigo-600">Clear</button>
+                                </div>
+                                <button type="button" @click="open = !open"
+                                        :aria-expanded="open"
+                                        :class="filters[f.key].length ? 'border-indigo-300 bg-indigo-50/50' : 'border-slate-200 bg-white'"
+                                        class="flex w-full items-center justify-between gap-2 rounded-xl border px-3 py-2.5 text-left font-medium focus:outline-none focus:ring-2 focus:ring-indigo-200">
+                                    <span class="truncate" x-text="multiLabel(f)"></span>
+                                    <i class="fa-solid fa-chevron-down shrink-0 text-[10px] text-slate-400 transition-transform" :class="open && 'rotate-180'"></i>
+                                </button>
+
+                                <div x-show="open" x-transition x-cloak
+                                     class="absolute left-0 right-0 z-20 mt-1 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
+                                    <div class="border-b border-slate-100 p-2">
+                                        <input type="search" x-model="q" :placeholder="'Search ' + f.label.toLowerCase() + '…'"
+                                               class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 focus:border-indigo-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200">
+                                    </div>
+                                    <div class="flex items-center justify-between px-3 py-1.5 text-xs font-medium">
+                                        <button @click="selectOptions(f.key, optionsMatching(f.key, q))" class="text-indigo-600 hover:underline">Select all<span x-show="q"> shown</span></button>
+                                        <button @click="clearFilter(f.key)" class="text-slate-500 hover:underline">Clear</button>
+                                    </div>
+                                    <ul class="max-h-64 overflow-y-auto p-1">
+                                        <template x-for="o in optionsMatching(f.key, q)" :key="o">
+                                            <li>
+                                                <label class="flex cursor-pointer items-start gap-2.5 rounded-lg px-2.5 py-2 hover:bg-slate-50">
+                                                    <input type="checkbox" class="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                                           :checked="filters[f.key].includes(o)" @change="toggleFilter(f.key, o)">
+                                                    <span class="leading-snug" x-text="o"></span>
+                                                </label>
+                                            </li>
+                                        </template>
+                                        <li x-show="!optionsMatching(f.key, q).length" class="px-3 py-3 text-center text-xs text-slate-400">No matches</li>
+                                    </ul>
+                                </div>
+
+                                <div x-show="filters[f.key].length" class="flex flex-wrap gap-1 pt-0.5">
+                                    <template x-for="v in filters[f.key]" :key="v">
+                                        <button @click="toggleFilter(f.key, v)"
+                                                class="flex items-center gap-1 rounded-full bg-indigo-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-indigo-700">
+                                            <span x-text="v"></span><i class="fa-solid fa-xmark text-[10px]"></i>
+                                        </button>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </section>
+
+                <!-- ============ Purpose statement banner (per curriculum area) ============ -->
+                <template x-if="purpose && view !== 'map'">
+                    <section class="space-y-4 rounded-2xl border border-indigo-700 bg-gradient-to-br from-indigo-900 via-indigo-800 to-violet-900 p-4 text-white shadow-xl sm:p-6"
+                             x-data="{ open: window.innerWidth >= 768 }">
+                        <button @click="open = !open" :aria-expanded="open" class="flex w-full items-center justify-between gap-3 text-left">
+                            <span class="flex items-center gap-3">
+                                <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10"><i class="fa-solid" :class="purpose.icon"></i></span>
+                                <span>
+                                    <span class="block text-base font-bold sm:text-lg" x-text="purpose.title"></span>
+                                    <span class="block text-xs text-indigo-200" x-text="purpose.subtitle"></span>
+                                </span>
+                            </span>
+                            <i class="fa-solid fa-chevron-down text-xs transition-transform" :class="open && 'rotate-180'"></i>
+                        </button>
+
+                        <div x-show="open" x-transition class="space-y-5 border-t border-indigo-700/60 pt-4">
+                            <div class="space-y-3">
+                                <template x-for="(para, pi) in purpose.paragraphs" :key="pi">
+                                    <p class="leading-relaxed text-indigo-100" x-text="para"></p>
+                                </template>
+                            </div>
+                            <h3 class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-indigo-200">
+                                <i class="fa-solid fa-lightbulb text-amber-300"></i>Big Ideas
+                            </h3>
+                            <div class="grid gap-3" :class="purpose.bigIdeas.length === 3 ? 'md:grid-cols-3' : 'md:grid-cols-2 xl:grid-cols-3'">
+                                <template x-for="(idea, ii) in purpose.bigIdeas" :key="ii">
+                                    <div class="space-y-2 rounded-xl border border-white/10 bg-white/10 p-4">
+                                        <div class="font-bold" :class="IDEA_COLOURS[ii % IDEA_COLOURS.length]" x-text="idea.title"></div>
+                                        <p class="leading-relaxed text-indigo-100" x-text="idea.text"></p>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </section>
+                </template>
+
+                <!-- ============ Empty state ============ -->
+                <template x-if="!filtered.length && view !== 'map'">
+                    <div class="panel p-12 text-center text-slate-500">
+                        <i class="fa-regular fa-folder-open mb-3 text-3xl text-slate-300"></i>
+                        <p class="font-medium">No matching curriculum items</p>
+                        <p class="mt-1 text-xs text-slate-400">Try a broader search or clear some filters.</p>
+                    </div>
+                </template>
+
+                <!-- ============ Curriculum map view ============ -->
+                <template x-if="view === 'map' && items.length">
+                    <section class="space-y-4">
+                        <div class="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                            <p class="text-xs text-slate-500">The curriculum at a glance: every area with its purpose statement and big ideas. Use <b>Explore</b> to open an area in the Summary view.</p>
+                            <div class="no-print flex shrink-0 flex-wrap gap-2">
+                                <button @click="setMapOpen(true)" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"><i class="fa-solid fa-square-plus mr-1.5"></i>Expand all</button>
+                                <button @click="setMapOpen(false)" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"><i class="fa-solid fa-square-minus mr-1.5"></i>Collapse all</button>
+                            </div>
+                        </div>
+
+                        <nav class="no-print flex flex-wrap gap-1.5" aria-label="Jump to area">
+                            <template x-for="a in curriculumMap" :key="a.area">
+                                <a :href="'#area-' + a.slug" class="rounded-full px-3 py-1 text-xs font-semibold" :class="a.theme.chip" x-text="a.area"></a>
+                            </template>
+                        </nav>
+
+                        <template x-for="a in curriculumMap" :key="a.area">
+                            <article :id="'area-' + a.slug" class="panel scroll-mt-4 overflow-hidden">
+                                <div class="flex flex-col gap-3 bg-gradient-to-r px-4 py-4 text-white sm:flex-row sm:items-center sm:justify-between sm:px-6" :class="a.theme.head">
+                                    <button @click="mapOpen[a.area] = !isMapOpen(a.area)" :aria-expanded="isMapOpen(a.area)" class="flex min-w-0 items-center gap-3 text-left">
+                                        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15"><i class="fa-solid" :class="a.purpose ? a.purpose.icon : 'fa-book-open'"></i></span>
+                                        <span class="min-w-0">
+                                            <span class="block text-lg font-bold leading-tight" x-text="a.area"></span>
+                                            <span class="mt-0.5 block text-xs text-white/75"
+                                                  x-text="a.levels.length + ' level' + (a.levels.length === 1 ? '' : 's') + ' · ' + a.strands + ' strand' + (a.strands === 1 ? '' : 's') + ' · ' + a.subStrands + ' sub-strand' + (a.subStrands === 1 ? '' : 's') + (a.subSubStrands ? ' · ' + a.subSubStrands + ' sub-sub strand' + (a.subSubStrands === 1 ? '' : 's') : '') + ' · ' + a.records + ' understanding' + (a.records === 1 ? '' : 's')"></span>
+                                        </span>
+                                        <i class="fa-solid fa-chevron-down ml-1 shrink-0 text-xs transition-transform" :class="isMapOpen(a.area) && 'rotate-180'"></i>
+                                    </button>
+                                    <button @click="exploreArea(a.area)" class="no-print shrink-0 self-start rounded-lg bg-white/15 px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/25 sm:self-center">
+                                        Explore <i class="fa-solid fa-arrow-right ml-1"></i>
+                                    </button>
+                                </div>
+
+                                <div x-show="isMapOpen(a.area)" class="space-y-4 p-4 sm:p-6">
+                                    <div class="flex flex-wrap gap-1.5">
+                                        <template x-for="l in a.levels" :key="l">
+                                            <span class="rounded-md px-2 py-0.5 text-[11px] font-semibold" :class="levelClass(l)" x-text="l"></span>
+                                        </template>
+                                    </div>
+
+                                    <template x-if="a.subSubStrands">
+                                        <div>
+                                            <h3 class="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500"><i class="fa-solid fa-diagram-project mr-1.5" :class="a.theme.title"></i>Strands, sub-strands and sub-sub strands <span class="font-medium normal-case text-slate-400">(select a sub-sub strand to explore it)</span></h3>
+                                            <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                                                <template x-for="st in a.structure" :key="st.strand">
+                                                    <div class="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                                                        <p class="text-xs font-bold text-indigo-700" x-text="st.strand"></p>
+                                                        <template x-for="sb in st.subs" :key="sb.subStrand">
+                                                            <div class="space-y-1">
+                                                                <p class="text-[13px] font-semibold leading-snug text-slate-800" x-text="sb.subStrand"></p>
+                                                                <div class="flex flex-wrap gap-1">
+                                                                    <template x-for="ss in sb.subSubs" :key="ss">
+                                                                        <button @click="exploreArea(a.area, ss)" class="ssub-tag hover:bg-violet-600 hover:text-white" x-text="ss"></button>
+                                                                    </template>
+                                                                    <span x-show="!sb.subSubs.length" class="text-[11px] italic text-slate-400">No sub-sub strands</span>
+                                                                </div>
+                                                            </div>
+                                                        </template>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </div>
+                                    </template>
+
+                                    <template x-if="a.purpose">
+                                        <div class="space-y-4">
+                                            <div>
+                                                <h3 class="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500"><i class="fa-solid fa-bullseye mr-1.5" :class="a.theme.title"></i>Purpose statement</h3>
+                                                <div class="space-y-2.5">
+                                                    <template x-for="(para, pi) in a.purpose.paragraphs" :key="pi">
+                                                        <p class="leading-relaxed text-slate-700" x-text="para"></p>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <h3 class="mb-2 text-xs font-bold uppercase tracking-wider text-slate-500"><i class="fa-solid fa-lightbulb mr-1.5 text-amber-500"></i>Big ideas <span class="font-medium normal-case text-slate-400" x-text="'(' + a.purpose.bigIdeas.length + ')'"></span></h3>
+                                                <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                                                    <template x-for="(idea, ii) in a.purpose.bigIdeas" :key="ii">
+                                                        <div class="space-y-1.5 rounded-xl border p-4" :class="a.theme.idea">
+                                                            <div class="font-bold leading-snug" :class="a.theme.title" x-text="idea.title"></div>
+                                                            <p class="text-[13px] leading-relaxed text-slate-700" x-text="idea.text"></p>
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </template>
+                                    <template x-if="!a.purpose">
+                                        <p class="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-center text-xs text-slate-500">
+                                            No purpose statement or big ideas have been added for this area yet.
+                                        </p>
+                                    </template>
+                                </div>
+                            </article>
+                        </template>
+                    </section>
+                </template>
+
+                <!-- ============ Summary view ============ -->
+                <template x-if="filtered.length && view === 'summary'">
+                    <section class="space-y-3">
+                        <div class="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                            <p class="text-xs text-slate-500">Curriculum areas (rows) by level (columns). Drill down for every cell at once, or use the buttons inside a cell to drill into just that one.</p>
+                            <div class="no-print inline-flex shrink-0 self-start rounded-xl bg-slate-200/70 p-1">
+                                <template x-for="d in depthOptions" :key="d.id">
+                                    <button @click="setAllDepths(d.id)"
+                                            :class="summaryDepth === d.id ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'"
+                                            class="rounded-lg px-3 py-1.5 text-xs font-semibold transition" x-text="d.label"></button>
+                                </template>
+                            </div>
+                        </div>
+
+                        <div class="panel overflow-hidden">
+                            <table class="fit-table w-full table-fixed border-collapse break-words"
+                                   :class="summary.levels.length > 5 ? 'is-dense' : ''">
+                                <thead>
+                                    <tr class="border-b border-slate-200 bg-slate-50">
+                                        <th class="fit-area w-28 border-r border-slate-200 bg-slate-50 p-2 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500 lg:w-36 lg:p-3">Curriculum area</th>
+                                        <template x-for="lv in summary.levels" :key="lv">
+                                            <th class="border-r border-slate-100 p-2 text-left lg:p-3">
+                                                <span class="badge" :class="levelClass(lv)" x-text="lv"></span>
+                                            </th>
+                                        </template>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100">
+                                    <template x-for="row in summary.rows" :key="row.area">
+                                        <tr class="align-top">
+                                            <th scope="row" class="fit-area border-r border-slate-200 bg-slate-50 p-2 text-left text-[11px] font-bold uppercase tracking-wide text-indigo-900 lg:p-3 lg:text-xs" x-text="row.area"></th>
+                                            <template x-for="lv in summary.levels" :key="lv">
+                                                <td class="fit-cell border-r border-slate-100 p-2 lg:p-3"
+                                                    :data-level="lv" :class="!row.cells[lv].statements.length && 'fit-empty'">
+                                                    <template x-if="row.cells[lv].statements.length">
+                                                        <div class="space-y-3">
+                                                            <!-- per-cell drill-down control -->
+                                                            <div class="no-print flex w-fit max-w-full flex-wrap rounded-lg bg-slate-100 p-0.5">
+                                                                <template x-for="d in depthOptions" :key="d.id">
+                                                                    <button @click="setCellDepth(cellKey(row, lv), d.id)"
+                                                                            :class="depthFor(cellKey(row, lv)) === d.id ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'"
+                                                                            class="rounded-md px-2 py-1 text-[10px] font-semibold transition" x-text="d.short"></button>
+                                                                </template>
+                                                            </div>
+
+                                                            <!-- level 0: understanding statements -->
+                                                            <template x-if="depthFor(cellKey(row, lv)) === 0">
+                                                                <ul class="list-disc space-y-2 pl-4 leading-relaxed text-slate-800">
+                                                                    <template x-for="(s, i) in row.cells[lv].statements" :key="i">
+                                                                        <li x-text="s"></li>
+                                                                    </template>
+                                                                </ul>
+                                                            </template>
+
+                                                            <!-- level 1: strands + understanding statements -->
+                                                            <template x-if="depthFor(cellKey(row, lv)) === 1">
+                                                                <div class="space-y-3">
+                                                                    <template x-for="st in row.cells[lv].strands" :key="st.strand">
+                                                                        <div class="space-y-1">
+                                                                            <p class="text-xs font-bold text-indigo-700" x-text="st.strand"></p>
+                                                                            <ul class="list-disc space-y-1.5 pl-4 leading-relaxed text-slate-800">
+                                                                                <template x-for="(g, gi) in st.groups" :key="gi">
+                                                                                    <li><span x-text="g.statement"></span>
+                                                                                        <span x-show="g.subSubs.length" class="mt-1 flex flex-wrap gap-1">
+                                                                                            <template x-for="ss in g.subSubs" :key="ss"><span class="ssub-tag" title="Sub-sub strand" x-text="ss"></span></template>
+                                                                                        </span>
+                                                                                    </li>
+                                                                                </template>
+                                                                            </ul>
+                                                                        </div>
+                                                                    </template>
+                                                                </div>
+                                                            </template>
+
+                                                            <!-- level 2: strands + understanding + know & do -->
+                                                            <template x-if="depthFor(cellKey(row, lv)) === 2">
+                                                                <div class="space-y-4">
+                                                                    <template x-for="st in row.cells[lv].strands" :key="st.strand">
+                                                                        <div class="space-y-2">
+                                                                            <p class="text-xs font-bold text-indigo-700" x-text="st.strand"></p>
+                                                                            <template x-for="(g, gi) in st.groups" :key="gi">
+                                                                                <div class="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-2.5">
+                                                                                    <p class="font-semibold leading-snug text-slate-900" x-text="g.statement"></p>
+                                                                                    <template x-for="it in g.items" :key="it.id">
+                                                                                        <div class="space-y-1.5">
+                                                                                            <div class="flex flex-wrap items-center justify-between gap-1.5">
+                                                                                                <button @click="openDetail(it)" class="text-left text-[11px] font-semibold text-indigo-600 hover:underline">
+                                                                                                    <i class="fa-solid fa-tag mr-1 text-[9px] opacity-70"></i><span x-text="it.subStrand"></span> <span x-show="it.subSubStrand" class="ssub-tag" title="Sub-sub strand" x-text="it.subSubStrand"></span>
+                                                                                                </button>
+                                                                                                <div class="flex flex-wrap items-center gap-1.5">
+                                                                                                    <button x-show="it.hasNotes" @click="openNotes(it)" class="btn-note"><i class="fa-solid fa-note-sticky"></i>Notes</button>
+                                                                                                    <button x-show="it.hasMore" @click="openMore(it)" class="btn-more"><i class="fa-solid fa-circle-info"></i>More info</button>
+                                                                                                </div>
+                                                                                            </div>
+                                                                                            <div class="space-y-1.5 text-xs" x-html="knowDoHtml(it)"></div>
+                                                                                        </div>
+                                                                                    </template>
+                                                                                </div>
+                                                                            </template>
+                                                                        </div>
+                                                                    </template>
+                                                                </div>
+                                                            </template>
+                                                        </div>
+                                                    </template>
+                                                    <span x-show="!row.cells[lv].statements.length" class="text-slate-300">—</span>
+                                                </td>
+                                            </template>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+                </template>
+
+                <!-- ============ Cards view ============ -->
+                <template x-if="filtered.length && view === 'cards'">
+                    <section class="space-y-8">
+                        <template x-for="group in pageGroups" :key="group.area">
+                            <div class="space-y-3">
+                                <div class="area-bar">
+                                    <h3 class="text-sm font-bold uppercase tracking-wide" x-text="group.area"></h3>
+                                    <span class="shrink-0 rounded-lg bg-white/20 px-2.5 py-1 text-xs font-medium" x-text="group.items.length + ' items'"></span>
+                                </div>
+                                <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+                                    <template x-for="item in group.items" :key="item.id">
+                                        <article class="panel flex flex-col gap-3 p-4 transition hover:shadow-md">
+                                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                                <span class="badge" :class="levelClass(item.level)" x-text="item.level"></span>
+                                                <div class="flex flex-wrap items-center gap-1.5">
+                                                    <button x-show="item.hasNotes" @click="openNotes(item)" class="btn-note"><i class="fa-solid fa-note-sticky"></i>Notes</button>
+                                                    <button x-show="item.hasMore" @click="openMore(item)" class="btn-more"><i class="fa-solid fa-circle-info"></i>More info</button>
+                                                </div>
+                                            </div>
+                                            <div class="space-y-0.5">
+                                                <p class="text-xs text-slate-500" x-text="item.strand"></p>
+                                                <h4 class="font-semibold text-slate-900" x-text="item.subStrand"></h4>
+                                                <p x-show="item.subSubStrand"><span class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Sub-sub strand</span> <span class="ssub-tag" x-text="item.subSubStrand"></span></p>
+                                            </div>
+                                            <div>
+                                                <p class="eyebrow mb-0.5">Understanding</p>
+                                                <p class="font-medium leading-snug text-slate-900" x-text="item.statement || 'No statement specified.'"></p>
+                                            </div>
+                                            <div class="space-y-2" x-html="knowDoHtml(item)"></div>
+                                            <button @click="openDetail(item)" class="mt-auto self-end text-xs font-semibold text-indigo-600 hover:underline">View details</button>
+                                        </article>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+
+                        <div x-show="totalPages > 1" class="no-print panel flex items-center justify-between gap-3 p-3">
+                            <button @click="goToPage(page - 1)" :disabled="page === 1"
+                                    class="btn border-slate-200 text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40">
+                                <i class="fa-solid fa-chevron-left"></i><span class="hidden sm:inline">Previous</span>
+                            </button>
+                            <span class="text-slate-600">Page <b class="text-slate-900" x-text="page"></b> of <b class="text-slate-900" x-text="totalPages"></b></span>
+                            <button @click="goToPage(page + 1)" :disabled="page === totalPages"
+                                    class="btn border-slate-200 text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40">
+                                <span class="hidden sm:inline">Next</span><i class="fa-solid fa-chevron-right"></i>
+                            </button>
+                        </div>
+                    </section>
+                </template>
+
+                <!-- ============ Visual tree view ============ -->
+                <template x-if="filtered.length && view === 'tree'">
+                    <section class="space-y-3">
+                        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <p class="text-xs text-slate-500">Level → Curriculum area → Strand (with its understanding) → Sub-strand → Sub-sub strand (with Know &amp; Do). Tap a node to expand or collapse.</p>
+                            <div class="no-print flex shrink-0 gap-2 self-start">
+                                <button @click="expandTree()" class="btn border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"><i class="fa-solid fa-square-plus"></i>Expand all</button>
+                                <button @click="collapseTree()" class="btn border-slate-200 bg-white text-slate-600 hover:bg-slate-50"><i class="fa-solid fa-square-minus"></i>Collapse all</button>
+                            </div>
+                        </div>
+
+                        <div class="panel overflow-x-auto p-3 sm:p-5">
+                            <div class="tree min-w-[18rem]">
+                                <!-- Root -->
+                                <div class="tree-label bg-slate-900 text-white shadow-sm">
+                                    <span class="flex items-center gap-2.5 font-bold">
+                                        <i class="fa-solid fa-sitemap"></i>
+                                        <span x-text="filters.area || 'Curriculum'"></span>
+                                    </span>
+                                    <span class="shrink-0 rounded-lg bg-white/20 px-2.5 py-1 text-xs font-medium" x-text="filtered.length + ' records'"></span>
+                                </div>
+
+                                <div class="tree-children">
+                                    <!-- Level -->
+                                    <template x-for="lv in tree" :key="lv.key">
+                                        <div class="tree-node">
+                                            <button @click="toggleNode(lv.key)" :aria-expanded="isOpen(lv.key)"
+                                                    class="tree-label bg-gradient-to-r from-indigo-900 to-violet-900 text-white shadow-sm">
+                                                <span class="flex items-center gap-2.5">
+                                                    <i class="fa-solid fa-chevron-right w-3 text-xs transition-transform" :class="isOpen(lv.key) && 'rotate-90'"></i>
+                                                    <span class="badge" :class="levelClass(lv.level)" x-text="lv.level"></span>
+                                                </span>
+                                                <span class="shrink-0 rounded-lg bg-white/20 px-2.5 py-1 text-xs font-medium" x-text="lv.count + ' items'"></span>
+                                            </button>
+
+                                            <div x-show="isOpen(lv.key)" x-transition class="tree-children">
+                                                <!-- Curriculum area -->
+                                                <template x-for="ar in lv.areas" :key="ar.key">
+                                                    <div class="tree-node">
+                                                        <button @click="toggleNode(ar.key)" :aria-expanded="isOpen(ar.key)"
+                                                                class="tree-label border border-slate-300 bg-slate-100 hover:bg-slate-200/70">
+                                                            <span class="flex items-center gap-2.5">
+                                                                <i class="fa-solid fa-chevron-right w-3 text-[10px] text-slate-500 transition-transform" :class="isOpen(ar.key) && 'rotate-90'"></i>
+                                                                <span class="text-xs font-bold uppercase tracking-wide text-slate-800" x-text="ar.area"></span>
+                                                            </span>
+                                                            <span class="shrink-0 rounded bg-slate-200 px-2 py-0.5 text-[11px] font-medium text-slate-700" x-text="ar.count"></span>
+                                                        </button>
+
+                                                        <div x-show="isOpen(ar.key)" x-transition class="tree-children">
+                                                            <!-- Strand + understanding -->
+                                                            <template x-for="st in ar.strands" :key="st.key">
+                                                                <div class="tree-node">
+                                                                    <div class="overflow-hidden rounded-xl border border-indigo-200 bg-indigo-50/70">
+                                                                        <button @click="toggleNode(st.key)" :aria-expanded="isOpen(st.key)"
+                                                                                class="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left hover:bg-indigo-100/60">
+                                                                            <span class="flex items-center gap-2.5">
+                                                                                <i class="fa-solid fa-chevron-right w-3 text-[10px] text-indigo-500 transition-transform" :class="isOpen(st.key) && 'rotate-90'"></i>
+                                                                                <span class="font-bold text-indigo-950" x-text="st.strand"></span>
+                                                                            </span>
+                                                                            <span class="shrink-0 rounded bg-indigo-100 px-2 py-0.5 text-[11px] font-medium text-indigo-800" x-text="st.subStrandCount + (st.subStrandCount === 1 ? ' sub-strand' : ' sub-strands') + (st.subSubCount ? ' · ' + st.subSubCount + (st.subSubCount === 1 ? ' sub-sub strand' : ' sub-sub strands') : '')"></span>
+                                                                        </button>
+                                                                        <div class="space-y-1 border-t border-indigo-100 bg-white/70 px-3 py-2.5">
+                                                                            <p class="eyebrow">Understanding</p>
+                                                                            <template x-for="(stmt, si) in st.statements" :key="si">
+                                                                                <p class="flex gap-2 leading-snug text-slate-900">
+                                                                                    <span x-show="st.statements.length > 1" class="mt-0.5 h-5 w-5 shrink-0 rounded-full bg-indigo-600 text-center text-[11px] font-bold leading-5 text-white" x-text="si + 1"></span>
+                                                                                    <span class="font-medium" x-text="stmt"></span>
+                                                                                </p>
+                                                                            </template>
+                                                                            <p x-show="!st.statements.length" class="italic text-slate-400">No understanding statement.</p>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    <div x-show="isOpen(st.key)" x-transition class="tree-children">
+                                                                        <!-- Sub-strand (with sub-sub strands) + know & do -->
+                                                                        <template x-for="sg in st.subGroups" :key="sg.key">
+                                                                            <div class="tree-node">
+                                                                                <div x-show="sg.hasSub" class="tree-label border border-violet-200 bg-violet-50">
+                                                                                    <span class="flex items-center gap-2.5"><i class="fa-solid fa-tag w-3 text-[10px] text-violet-500"></i><span class="text-[10px] font-bold uppercase tracking-wider text-violet-400">Sub-strand</span><span class="font-semibold text-violet-950" x-text="sg.subStrand"></span></span>
+                                                                                    <span class="shrink-0 rounded bg-violet-100 px-2 py-0.5 text-[11px] font-medium text-violet-800" x-text="sg.subSubCount + (sg.subSubCount === 1 ? ' sub-sub strand' : ' sub-sub strands')"></span>
+                                                                                </div>
+                                                                                <div :class="sg.hasSub ? 'tree-children' : ''">
+                                                                                    <template x-for="leaf in sg.leaves" :key="leaf.item.id">
+                                                                                        <div :class="sg.hasSub ? 'tree-node' : ''">
+                                                                                            <div class="space-y-2.5 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                                                                                                <div class="flex items-start justify-between gap-2">
+                                                                                                    <div class="min-w-0">
+                                                                                                        <p x-show="sg.hasSub" class="eyebrow">Sub-sub strand</p>
+                                                                                                        <h5 class="flex flex-wrap items-center gap-1.5 font-semibold text-slate-900">
+                                                                                                            <span x-text="sg.hasSub ? (leaf.item.subSubStrand || 'No sub-sub strand') : leaf.item.subStrand"></span>
+                                                                                                            <span x-show="leaf.ref" class="rounded-full bg-indigo-600 px-1.5 text-[10px] font-bold leading-4 text-white" x-text="'U' + leaf.ref"></span>
+                                                                                                        </h5>
+                                                                                                    </div>
+                                                                                                    <div class="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+                                                                                                        <button x-show="leaf.item.hasNotes" @click="openNotes(leaf.item)" class="btn-note"><i class="fa-solid fa-note-sticky"></i>Notes</button>
+                                                                                                        <button x-show="leaf.item.hasMore" @click="openMore(leaf.item)" class="btn-more"><i class="fa-solid fa-circle-info"></i>More info</button>
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                                <div class="grid gap-2 text-xs md:grid-cols-2" x-html="knowDoHtml(leaf.item)"></div>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    </template>
+                                                                                </div>
+                                                                            </div>
+                                                                        </template>
+                                                                    </div>
+                                                                </div>
+                                                            </template>
+                                                        </div>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                </template>
+
+                <!-- ============ Understanding matrix view ============ -->
+                <template x-if="filtered.length && view === 'understanding'">
+                    <section class="space-y-4">
+                        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <p class="text-xs text-slate-500">Tap a sub-strand tag to see its Know &amp; Do.</p>
+                            <button @click="levelsAsRows = !levelsAsRows" class="btn no-print self-start border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100">
+                                <i class="fa-solid fa-right-left"></i>
+                                <span x-text="levelsAsRows ? 'Show strands as rows' : 'Show levels as rows'"></span>
+                            </button>
+                        </div>
+
+                        <template x-for="m in matrix" :key="m.area">
+                            <div class="panel overflow-hidden">
+                                <div class="area-bar rounded-none">
+                                    <h3 class="text-sm font-bold uppercase tracking-wide" x-text="m.area"></h3>
+                                    <span class="shrink-0 rounded-lg bg-white/20 px-2.5 py-1 text-xs font-medium" x-text="m.count + ' records' + (m.subSubCount ? ' · ' + m.subSubCount + ' sub-sub strand' + (m.subSubCount === 1 ? '' : 's') : '')"></span>
+                                </div>
+                                <div>
+                                    <table class="fit-table w-full table-fixed border-collapse break-words"
+                                           :class="(levelsAsRows ? m.strands : m.levels).length > 5 ? 'is-dense' : ''">
+                                        <thead>
+                                            <tr class="border-b border-slate-200 bg-slate-50">
+                                                <th class="fit-area w-24 border-r border-slate-200 bg-slate-50 p-2 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500 lg:w-32 lg:p-3"
+                                                    x-text="levelsAsRows ? 'Level / Strand' : 'Strand / Level'"></th>
+                                                <template x-for="col in (levelsAsRows ? m.strands : m.levels)" :key="col">
+                                                    <th class="border-r border-slate-100 p-2 text-left align-bottom lg:p-3">
+                                                        <span x-show="!levelsAsRows" class="badge" :class="levelClass(col)" x-text="col"></span>
+                                                        <span x-show="levelsAsRows" class="text-xs font-bold text-slate-700" x-text="col"></span>
+                                                    </th>
+                                                </template>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-slate-100">
+                                            <template x-for="row in (levelsAsRows ? m.levels : m.strands)" :key="row">
+                                                <tr class="align-top">
+                                                    <th scope="row" class="fit-area border-r border-slate-200 bg-slate-50 p-2 text-left lg:p-3">
+                                                        <span x-show="levelsAsRows" class="badge" :class="levelClass(row)" x-text="row"></span>
+                                                        <span x-show="!levelsAsRows" class="text-xs font-bold text-slate-800" x-text="row"></span>
+                                                    </th>
+                                                    <template x-for="col in (levelsAsRows ? m.strands : m.levels)" :key="col">
+                                                        <td class="fit-cell space-y-3 border-r border-slate-100 p-2 lg:p-3" :data-level="col" :class="!matrixCell(m, row, col).length && 'fit-empty'">
+                                                            <template x-for="(g, gi) in matrixCell(m, row, col)" :key="gi">
+                                                                <div class="space-y-1.5 border-b border-slate-100 pb-3 last:border-0 last:pb-0">
+                                                                    <p class="font-semibold leading-relaxed text-slate-900" x-text="g.statement"></p>
+                                                                    <div class="flex flex-wrap gap-1.5">
+                                                                        <template x-for="it in g.items" :key="it.id">
+                                                                            <span class="inline-flex max-w-full items-stretch overflow-hidden rounded-md border border-indigo-100 bg-indigo-50 text-xs font-semibold text-indigo-700">
+                                                                                <button @click="openDetail(it)" class="px-2 py-1 text-left transition hover:bg-indigo-600 hover:text-white">
+                                                                                    <span x-text="it.subStrand"></span> <span x-show="it.subSubStrand" class="ssub-tag" title="Sub-sub strand" x-text="it.subSubStrand"></span>
+                                                                                </button>
+                                                                                <button x-show="it.hasNotes" @click="openNotes(it)"
+                                                                                        :title="'Notes for ' + it.subStrand" :aria-label="'Notes for ' + it.subStrand"
+                                                                                        class="flex items-center gap-1 border-l border-amber-200 bg-amber-50 px-2 text-amber-800 transition hover:bg-amber-100">
+                                                                                    <i class="fa-solid fa-note-sticky"></i><span class="hidden sm:inline">Notes</span>
+                                                                                </button>
+                                                                                <button x-show="it.hasMore" @click="openMore(it)"
+                                                                                        :title="'More information for ' + it.subStrand" :aria-label="'More information for ' + it.subStrand"
+                                                                                        class="flex items-center gap-1 border-l border-indigo-200 bg-white px-2 text-indigo-700 transition hover:bg-indigo-100">
+                                                                                    <i class="fa-solid fa-circle-info"></i><span class="hidden sm:inline">More</span>
+                                                                                </button>
+                                                                            </span>
+                                                                        </template>
+                                                                    </div>
+                                                                </div>
+                                                            </template>
+                                                            <span x-show="!matrixCell(m, row, col).length" class="block py-2 text-center text-slate-300">—</span>
+                                                        </td>
+                                                    </template>
+                                                </tr>
+                                            </template>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </template>
+                    </section>
+                </template>
+
+                <!-- ============ Know & Do matrix view ============ -->
+                <template x-if="filtered.length && view === 'knowdo'">
+                    <section class="space-y-4">
+                        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <p class="text-xs text-slate-500">Know &amp; Do statements by level and strand. Tap a sub-strand name for full details.</p>
+                            <button @click="kdLevelsAsRows = !kdLevelsAsRows" class="btn no-print self-start border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100">
+                                <i class="fa-solid fa-right-left"></i>
+                                <span x-text="kdLevelsAsRows ? 'Show strands as rows' : 'Show levels as rows'"></span>
+                            </button>
+                        </div>
+
+                        <template x-for="m in matrix" :key="m.area">
+                            <div class="panel overflow-hidden">
+                                <div class="area-bar rounded-none">
+                                    <h3 class="text-sm font-bold uppercase tracking-wide" x-text="m.area"></h3>
+                                    <span class="shrink-0 rounded-lg bg-white/20 px-2.5 py-1 text-xs font-medium" x-text="m.count + ' records' + (m.subSubCount ? ' · ' + m.subSubCount + ' sub-sub strand' + (m.subSubCount === 1 ? '' : 's') : '')"></span>
+                                </div>
+                                <div>
+                                    <table class="fit-table w-full table-fixed border-collapse break-words"
+                                           :class="(kdLevelsAsRows ? m.strands : m.levels).length > 5 ? 'is-dense' : ''">
+                                        <thead>
+                                            <tr class="border-b border-slate-200 bg-slate-50">
+                                                <th class="fit-area w-24 border-r border-slate-200 bg-slate-50 p-2 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500 lg:w-32 lg:p-3"
+                                                    x-text="kdLevelsAsRows ? 'Level / Strand' : 'Strand / Level'"></th>
+                                                <template x-for="col in (kdLevelsAsRows ? m.strands : m.levels)" :key="col">
+                                                    <th class="border-r border-slate-100 p-2 text-left align-bottom lg:p-3">
+                                                        <span x-show="!kdLevelsAsRows" class="badge" :class="levelClass(col)" x-text="col"></span>
+                                                        <span x-show="kdLevelsAsRows" class="text-xs font-bold text-slate-700" x-text="col"></span>
+                                                    </th>
+                                                </template>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-slate-100">
+                                            <template x-for="row in (kdLevelsAsRows ? m.levels : m.strands)" :key="row">
+                                                <tr class="align-top">
+                                                    <th scope="row" class="fit-area border-r border-slate-200 bg-slate-50 p-2 text-left lg:p-3">
+                                                        <span x-show="kdLevelsAsRows" class="badge" :class="levelClass(row)" x-text="row"></span>
+                                                        <span x-show="!kdLevelsAsRows" class="text-xs font-bold text-slate-800" x-text="row"></span>
+                                                    </th>
+                                                    <template x-for="col in (kdLevelsAsRows ? m.strands : m.levels)" :key="col">
+                                                        <td class="fit-cell space-y-3 border-r border-slate-100 p-2 lg:p-3" :data-level="col" :class="!kdItems(m, row, col).length && 'fit-empty'">
+                                                            <template x-for="it in kdItems(m, row, col)" :key="it.id">
+                                                                <div class="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-2.5">
+                                                                    <div class="flex items-start justify-between gap-2">
+                                                                        <button @click="openDetail(it)" class="text-left text-xs font-semibold text-indigo-700 hover:underline">
+                                                                            <span x-text="it.subStrand"></span> <span x-show="it.subSubStrand" class="ssub-tag" title="Sub-sub strand" x-text="it.subSubStrand"></span>
+                                                                        </button>
+                                                                        <div class="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+                                                                            <button x-show="it.hasNotes" @click="openNotes(it)" class="btn-note"><i class="fa-solid fa-note-sticky"></i>Notes</button>
+                                                                            <button x-show="it.hasMore" @click="openMore(it)" class="btn-more"><i class="fa-solid fa-circle-info"></i>More info</button>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div class="space-y-2 text-xs" x-html="knowDoHtml(it)"></div>
+                                                                </div>
+                                                            </template>
+                                                            <span x-show="!kdItems(m, row, col).length" class="block py-2 text-center text-slate-300">—</span>
+                                                        </td>
+                                                    </template>
+                                                </tr>
+                                            </template>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </template>
+                    </section>
+                </template>
+
+
+            </div>
+        </template>
+    </main>
+
+    <!-- ============ Detail modal ============ -->
+    <div x-show="detail" x-cloak x-transition.opacity @click.self="detail = null"
+         class="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 backdrop-blur-sm sm:items-center sm:p-4">
+        <div class="max-h-[90vh] w-full max-w-xl space-y-4 overflow-y-auto rounded-t-2xl bg-white p-5 shadow-2xl sm:rounded-2xl">
+            <template x-if="detail">
+                <div class="space-y-4">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="space-y-1.5">
+                            <span class="badge" :class="levelClass(detail.level)" x-text="detail.level"></span>
+                            <h3 class="text-base font-bold text-slate-900" x-text="detail.area"></h3>
+                        </div>
+                        <button @click="detail = null" class="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600" aria-label="Close">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+
+                    <div class="grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:grid-cols-2">
+                        <div>
+                            <p class="eyebrow">Strand</p>
+                            <p class="font-semibold text-slate-800" x-text="detail.strand"></p>
+                        </div>
+                        <div>
+                            <p class="eyebrow">Sub-strand</p>
+                            <p class="font-semibold text-slate-800" x-text="detail.subStrand"></p>
+                            </div>
+                        <div x-show="detail.subSubStrand">
+                            <p class="eyebrow">Sub-sub strand</p>
+                            <p class="font-semibold text-slate-800" x-text="detail.subSubStrand"></p>
+                        </div>
+                    </div>
+
+                    <div>
+                        <p class="eyebrow mb-0.5">Understanding statement</p>
+                        <p class="leading-relaxed text-slate-900" x-text="detail.statement"></p>
+                    </div>
+
+                    <div class="space-y-2" x-html="knowDoHtml(detail)"></div>
+
+                    <div class="flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
+                        <div class="flex flex-wrap items-center gap-1.5">
+                            <button x-show="detail.hasNotes" @click="openNotes(detail)" class="btn-note"><i class="fa-solid fa-note-sticky"></i>Notes</button>
+                            <button x-show="detail.hasMore" @click="openMore(detail)" class="btn-more"><i class="fa-solid fa-circle-info"></i>More info</button>
+                        </div>
+                        <button @click="detail = null" class="btn ml-auto border-slate-900 bg-slate-900 text-white hover:bg-slate-800">Close</button>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- ============ Notes modal (notes only) ============ -->
+    <div x-show="notesItem" x-cloak x-transition.opacity @click.self="notesItem = null"
+         class="fixed inset-0 z-[60] flex items-end justify-center bg-slate-900/50 backdrop-blur-sm sm:items-center sm:p-4">
+        <div class="max-h-[85vh] w-full max-w-lg space-y-3 overflow-y-auto rounded-t-2xl border border-amber-200 bg-amber-50 p-5 shadow-2xl sm:rounded-2xl">
+            <template x-if="notesItem">
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between gap-3">
+                        <h3 class="flex items-center gap-2 font-bold text-amber-900"><i class="fa-solid fa-note-sticky"></i>Notes</h3>
+                        <button @click="notesItem = null" class="rounded-lg p-2 text-amber-700 hover:bg-amber-100" aria-label="Close notes">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                    <template x-for="(block, bi) in notesItem.noteBlocks" :key="bi">
+                        <div class="space-y-1">
+                            <p x-show="block.heading" class="font-bold text-amber-900 underline" x-text="block.heading"></p>
+                            <ul class="list-disc space-y-1 pl-5 leading-relaxed text-slate-800">
+                                <template x-for="(b, i) in block.bullets" :key="i">
+                                    <li x-text="b"></li>
+                                </template>
+                            </ul>
+                        </div>
+                    </template>
+                    <div x-show="notesItem.hasMore" class="border-t border-amber-200 pt-3">
+                        <button @click="openMore(notesItem)" class="btn w-full border-indigo-600 bg-indigo-600 text-white hover:bg-indigo-700">
+                            <i class="fa-solid fa-circle-info"></i>More information
+                        </button>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- ============ More information modal (vocabulary, deep dive, resources) ============ -->
+    <div x-show="moreItem" x-cloak x-transition.opacity @click.self="moreItem = null"
+         class="fixed inset-0 z-[70] flex items-end justify-center bg-slate-900/50 backdrop-blur-sm sm:items-center sm:p-4">
+        <div class="max-h-[88vh] w-full max-w-2xl space-y-5 overflow-y-auto rounded-t-2xl bg-white p-5 shadow-2xl sm:rounded-2xl">
+            <template x-if="moreItem">
+                <div class="space-y-5">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="space-y-1.5">
+                            <h3 class="flex items-center gap-2 font-bold text-slate-900"><i class="fa-solid fa-circle-info text-indigo-600"></i>More information</h3>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span class="badge" :class="levelClass(moreItem.level)" x-text="moreItem.level"></span>
+                                <span class="font-semibold text-slate-700" x-text="moreItem.subStrand"></span>
+                            </div>
+                        </div>
+                        <button @click="moreItem = null" class="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600" aria-label="Close more information">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+
+                    <!-- Vocabulary -->
+                    <template x-if="moreItem.vocabTerms.length">
+                        <section class="space-y-2">
+                            <h4 class="eyebrow flex items-center gap-1.5"><i class="fa-solid fa-spell-check"></i>Vocabulary</h4>
+                            <dl class="divide-y divide-slate-100 rounded-xl border border-slate-200">
+                                <template x-for="entry in vocabEntries(moreItem)" :key="entry.term">
+                                    <div class="space-y-0.5 px-3 py-2.5">
+                                        <dt class="font-semibold text-indigo-900" x-text="entry.term"></dt>
+                                        <template x-for="(def, di) in entry.defs" :key="di">
+                                            <dd class="leading-relaxed text-slate-700" x-text="def"></dd>
+                                        </template>
+                                        <dd x-show="!entry.defs.length" class="text-xs italic text-slate-400"
+                                            x-text="vocabLoaded ? 'No definition found for this term.' : (vocabFailed ? 'Definitions could not be loaded.' : 'Loading definitions…')"></dd>
+                                    </div>
+                                </template>
+                            </dl>
+                        </section>
+                    </template>
+
+                    <!-- Deep dive -->
+                    <template x-if="moreItem.deepParas.length">
+                        <section class="space-y-2">
+                            <h4 class="eyebrow flex items-center gap-1.5"><i class="fa-solid fa-graduation-cap"></i>Deep dive</h4>
+                            <div class="space-y-2.5 rounded-xl border border-violet-100 bg-violet-50/60 p-3.5">
+                                <template x-for="(para, pi) in moreItem.deepParas" :key="pi">
+                                    <p class="leading-relaxed text-slate-800" x-text="para"></p>
+                                </template>
+                            </div>
+                        </section>
+                    </template>
+
+                    <!-- Resources -->
+                    <template x-if="moreItem.resources.length">
+                        <section class="space-y-2">
+                            <h4 class="eyebrow flex items-center gap-1.5"><i class="fa-solid fa-link"></i>Resources</h4>
+                            <ul class="space-y-1.5">
+                                <template x-for="(r, ri) in moreItem.resources" :key="ri">
+                                    <li>
+                                        <template x-if="r.url">
+                                            <a :href="r.url" target="_blank" rel="noopener noreferrer"
+                                               class="flex items-start gap-2.5 rounded-xl border border-slate-200 px-3 py-2.5 transition hover:border-indigo-300 hover:bg-indigo-50">
+                                                <i class="fa-solid fa-arrow-up-right-from-square mt-1 text-xs text-indigo-500"></i>
+                                                <span class="min-w-0">
+                                                    <span class="block break-words font-semibold text-indigo-700" x-text="r.label"></span>
+                                                    <span class="block break-all text-xs text-slate-400" x-text="r.host"></span>
+                                                </span>
+                                            </a>
+                                        </template>
+                                        <template x-if="!r.url"><span class="block rounded-xl border border-slate-200 px-3 py-2.5 text-slate-700" x-text="r.label"></span></template>
+                                    </li>
+                                </template>
+                            </ul>
+                        </section>
+                    </template>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <script src="cic-data.js"></script>
+    <script>
+    /* =====================================================================
+       Config
+       ===================================================================== */
+    const PAGE_SIZE = 12;
+
+    // Purpose statements and big ideas, shown when a single curriculum area is selected.
+    // `match` is tested against the selected area name.
+    const IDEA_COLOURS = ['text-amber-300', 'text-emerald-300', 'text-cyan-300', 'text-rose-300', 'text-violet-300'];
+
+    const AREA_THEMES = [
+        { head: 'from-indigo-900 to-violet-900',  chip: 'bg-indigo-100 text-indigo-800',   idea: 'border-indigo-200 bg-indigo-50',   title: 'text-indigo-800' },
+        { head: 'from-emerald-800 to-teal-900',   chip: 'bg-emerald-100 text-emerald-800', idea: 'border-emerald-200 bg-emerald-50', title: 'text-emerald-800' },
+        { head: 'from-amber-700 to-orange-800',   chip: 'bg-amber-100 text-amber-800',     idea: 'border-amber-200 bg-amber-50',     title: 'text-amber-800' },
+        { head: 'from-sky-800 to-cyan-900',       chip: 'bg-sky-100 text-sky-800',         idea: 'border-sky-200 bg-sky-50',         title: 'text-sky-800' },
+        { head: 'from-rose-800 to-pink-900',      chip: 'bg-rose-100 text-rose-800',       idea: 'border-rose-200 bg-rose-50',       title: 'text-rose-800' },
+        { head: 'from-slate-700 to-slate-900',    chip: 'bg-slate-200 text-slate-700',     idea: 'border-slate-200 bg-slate-50',     title: 'text-slate-700' }
+    ];
+
+    const PURPOSE_STATEMENTS = [
+        {
+            match: /technolog/i,
+            icon: 'fa-microchip',
+            title: 'Technologies Purpose Statement',
+            subtitle: 'Technology and Innovation curriculum framework overview',
+            paragraphs: [
+                `The Technology and Innovation curriculum gives children and young people opportunities to learn with, through and about technology to be creative, critical thinkers who use ethical, sustainable, and innovative approaches to address real world challenges, bridging theory and practice while preparing them to thrive as adaptable, socially aware citizens in a dynamic, inclusive, and rapidly evolving world.`
+            ],
+            bigIdeas: [
+                { title: '1. Understanding Our World', text: `We live in a complex world full of physical, digital, social, and economic systems. Modern living requires critically evaluating the products and decisions that shape the world around them and understanding how data is created and used, and how systems recognise patterns.` },
+                { title: '2. Innovation', text: `Engaging with our world requires the confident use of tools, materials, and processes to create products and services. Practical skills like designing, making, testing, and refining are essential to tackling real-world challenges.` },
+                { title: '3. Shaping Our Future', text: `Every technological decision has economic, environmental, and social impacts. By critiquing the implications of technology, learners develop the capacity to make responsible choices and actively shape a more sustainable and equitable future.` }
+            ]
+        },
+        {
+            match: /social\s*stud/i,
+            icon: 'fa-earth-europe',
+            title: 'Social Studies Purpose Statement',
+            subtitle: 'Social Studies curriculum framework overview',
+            paragraphs: [
+                `Social Studies supports children and young people to understand who they are, how they relate to others and how people are connected across time and place. It begins with them – their identities, their relationships and their place in the world – and extends outward to explore wider communities, societies and environments.`,
+                `Through Social Studies, children and young people build knowledge and understanding of how people live together, how decisions are made and how the past and present shape the world and influence possible futures. They develop an awareness of rights, and of responsibilities, and how these inform people’s lives. As they progress, they explore life at local, national and global scales, recognising patterns, connections and differences in the ways people experience and influence the world.`,
+                `Social Studies provides rich opportunities to investigate real-world issues and connect ideas across disciplines, supporting children and young people to question, reason and make informed and responsible decisions. Children and young people develop the knowledge and understanding to think critically, consider different perspectives, and explore meaningful questions about people, society and the environment. Social Studies encourages curiosity, respect and a desire to participate in and contribute to the world.`
+            ],
+            bigIdeas: [
+                { title: 'Change: The Changing World', text: `Change shapes people, places, societies and environments over time. Understanding how and why change occurs, why some things remain the same, and how people influence and respond to change, helps make sense of the past, present and possible futures. Exploring the causes and consequences of change at local, national and global scales shows that change can happen at different paces, be experienced in different ways by people and communities, and have intended or unintended outcomes. Understanding change and continuity helps make sense of the world.` },
+                { title: 'Connections: The Connected World', text: `Connections shape people, places, societies and environments across local, national and global scales. Understanding how people, places, systems and ideas are connected, and how these connections have changed over time, helps make sense of the past, present and possible futures. Exploring the social, economic, environmental and political connections between people and places shows that relationships influence opportunities and challenges, and how events and decisions are often interconnected. Understanding how connections influence people and places helps make sense of the world.` },
+                { title: 'Diversity: The Diverse World', text: `Diversity shapes people, places, societies and the ideas, beliefs and values that influence them. Understanding similarities and differences within and between people, communities and environments helps make sense of the past, present and possible futures. Exploring different identities, cultures, beliefs and perspectives shows that diversity shapes people's experiences, opportunities and participation within society. Recognising the value of diversity helps make sense of the world.` },
+                { title: 'Fragility: The Fragile World', text: `Fragility reflects the reality that people, places, societies, systems and environments can be disrupted, transformed or lost. Understanding how and why stability is strengthened, challenged or restored helps make sense of the past, present and possible futures. Exploring how human choices, natural processes, conflict, cooperation and sustainability influence people and places shows that stability is not always fixed. Understanding the balance between fragility and resilience helps make sense of the world.` },
+                { title: 'Knowing: Making Sense of the World', text: `Knowledge is created, interpreted and used to understand the world. Curiosity, evidence, enquiry and different perspectives shape knowledge and help make sense of the past, present and possible futures. Critical thinking helps people question, interpret and apply knowledge in informed ways. Understanding how knowledge is constructed and used helps people make sense of the world.` }
+            ]
+        }
+    ];
+
+    // Detail levels for the Summary drill-down.
+    const DEPTH_OPTIONS = [
+        { id: 0, label: 'Understandings', short: 'Statements' },
+        { id: 1, label: '+ Strands',      short: 'Strands' },
+        { id: 2, label: '+ Know & Do',    short: 'Know & Do' }
+    ];
+
+    // Multi-select dropdown filters.
+    const MULTI_FILTERS = [
+        { key: 'strands',    label: 'Strands',     all: 'All strands' },
+        { key: 'subStrands', label: 'Sub-strands', all: 'All sub-strands' },
+        { key: 'subSubStrands', label: 'Sub-sub strands', all: 'All sub-sub strands' }
+    ];
+
+    const VIEWS = [
+        { id: 'map',           label: 'Curriculum Map',       icon: 'fa-solid fa-map' },
+        { id: 'summary',       label: 'Summary',              icon: 'fa-solid fa-table-cells-large' },
+        { id: 'cards',         label: 'Cards',                icon: 'fa-solid fa-grip' },
+        { id: 'tree',          label: 'Visual Tree',          icon: 'fa-solid fa-sitemap' },
+        { id: 'understanding', label: 'Understanding Matrix', icon: 'fa-solid fa-border-all' },
+        { id: 'knowdo',        label: 'Know & Do',            icon: 'fa-solid fa-list-check' }
+    ];
+
+
+    /* =====================================================================
+       Derived views (pure functions of the filtered items)
+       ===================================================================== */
+    const numericCompare = (a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+    const compareItems = (a, b) =>
+        a.area.localeCompare(b.area) || compareLevels(a.level, b.level) || a.id - b.id;
+
+    // Summary cells hold three levels of detail: statements -> strands -> strands with Know & Do.
+    function buildSummary(items) {
+        const levels = unique(items.map(i => i.level)).sort(compareLevels);
+        const stmt = i => i.statement || 'No understanding statement.';
+        const rows = [...groupBy(items, i => i.area)].map(([area, list]) => {
+            const cells = {};
+            levels.forEach(lv => {
+                const inCell = list.filter(i => i.level === lv);
+                cells[lv] = {
+                    statements: unique(inCell.map(stmt)),
+                    strands: [...groupBy(inCell, i => i.strand)]
+                        .sort((a, b) => a[0].localeCompare(b[0]))
+                        .map(([strand, strandItems]) => ({
+                            strand,
+                            groups: [...groupBy(strandItems, stmt)].map(([statement, groupItems]) => ({ statement, items: groupItems, subSubs: unique(groupItems.map(i => i.subSubStrand)) }))
+                        }))
+                };
+            });
+            return { area, cells };
+        });
+        return { levels, rows };
+    }
+
+    function buildMatrix(items) {
+        return [...groupBy(items, i => i.area)].map(([area, list]) => {
+            const cells = {}, itemCells = {};
+            groupBy(list, i => i.level + '||' + i.strand).forEach((cellItems, key) => {
+                itemCells[key] = cellItems;
+                cells[key] = [...groupBy(cellItems, i => i.statement || 'No understanding statement.')]
+                    .map(([statement, groupItems]) => ({ statement, items: groupItems }));
+            });
+            return {
+                area,
+                count: list.length,
+                subSubCount: unique(list.map(i => i.subSubStrand)).length,
+                levels: unique(list.map(i => i.level)).sort(compareLevels),
+                strands: unique(list.map(i => i.strand)).sort(),
+                cells,
+                itemCells
+            };
+        });
+    }
+
+    // Level -> area -> strand -> sub-strand. A strand carries its understanding statement(s);
+    // each leaf is one sub-strand record. If a strand has several statements, leaves point at theirs (U1, U2…).
+    function buildTree(items) {
+        const levels = unique(items.map(i => i.level)).sort(compareLevels);
+        return levels.map(level => {
+            const inLevel = items.filter(i => i.level === level);
+            return {
+                key: 'L:' + level,
+                level,
+                count: inLevel.length,
+                areas: [...groupBy(inLevel, i => i.area)].map(([area, inArea]) => ({
+                    key: 'A:' + level + '|' + area,
+                    area,
+                    count: inArea.length,
+                    strands: [...groupBy(inArea, i => i.strand)]
+                        .sort((a, b) => a[0].localeCompare(b[0]))
+                        .map(([strand, list]) => {
+                            const statements = unique(list.map(i => i.statement));
+                            const subGroups = [...groupBy(list, i => i.subStrand)].map(([subStrand, subItems]) => ({
+                                key: 'SS:' + level + '|' + area + '|' + strand + '|' + subStrand,
+                                subStrand,
+                                hasSub: subItems.some(i => i.subSubStrand),
+                                subSubCount: unique(subItems.map(i => i.subSubStrand)).length,
+                                leaves: subItems.map(item => ({
+                                    item,
+                                    ref: statements.length > 1 && item.statement ? statements.indexOf(item.statement) + 1 : 0
+                                }))
+                            }));
+                            return {
+                                key: 'S:' + level + '|' + area + '|' + strand,
+                                strand,
+                                statements,
+                                subStrandCount: subGroups.length,
+                                subSubCount: unique(list.map(i => i.subSubStrand)).length,
+                                subGroups
+                            };
+                        })
+                }))
+            };
+        });
+    }
+
+    /* =====================================================================
+       Alpine app
+       ===================================================================== */
+    function curriculumApp() {
+        return {
+            // ---- state
+            views: VIEWS,
+            view: 'summary',
+            loading: true,
+            error: null,
+            warnings: [],
+            items: [],
+            filters: { search: '', area: '', levels: [], strands: [], subStrands: [], subSubStrands: [] },
+            filtersOpen: window.innerWidth >= 768,
+            options: { levels: [], strands: [], subStrands: [], subSubStrands: [] },
+            levelsAsRows: false,
+            kdLevelsAsRows: false,
+            depthOptions: DEPTH_OPTIONS,
+            multiFilters: MULTI_FILTERS,
+            summaryDepth: 0,
+            cellDepths: {},
+            page: 1,
+            printing: false,
+            detail: null,
+            notesItem: null,
+            moreItem: null,
+            vocab: Object.create(null),
+            vocabLoaded: false,
+            vocabFailed: false,
+            treeOpen: {},
+            mapOpen: {},
+
+            // ---- derived (rebuilt by apply())
+            filtered: [],
+            summary: { levels: [], rows: [] },
+            matrix: [],
+            tree: [],
+
+            // ---- template helpers
+            levelClass, listHtml, knowDoHtml, IDEA_COLOURS,
+
+            // ---- loading
+            async init() {
+                this.loading = true;
+                this.error = null;
+                this.loadVocab();   // runs alongside the main load; never blocks it
+                try {
+                    const res = await fetch(CSV_URL, { cache: 'no-store' });
+                    if (!res.ok) throw new Error('HTTP status ' + res.status);
+                    const { items, warnings } = buildItems(parseCsv(await res.text()));
+                    this.items = items;
+                    this.warnings = warnings;
+                    this.apply();
+                } catch (err) {
+                    console.error('Fetch error:', err);
+                    const hint = location.protocol === 'file:'
+                        ? ' This page is open via file:// – serve it over http(s) (e.g. GitHub Pages) and try again.'
+                        : ' Check the sheet is still published to the web as CSV and that nothing is blocking docs.google.com.';
+                    this.error = 'Could not load curriculum data (' + (err && err.message ? err.message : 'network or CORS error') + ').' + hint;
+                } finally {
+                    this.loading = false;
+                }
+            },
+
+            // ---- vocabulary definitions (second sheet; failure only means terms show without definitions)
+            async loadVocab() {
+                this.vocabLoaded = false;
+                this.vocabFailed = false;
+                try {
+                    const res = await fetch(VOCAB_URL, { cache: 'no-store' });
+                    if (!res.ok) throw new Error('HTTP status ' + res.status);
+                    this.vocab = buildVocab(parseCsv(await res.text()));
+                    this.vocabLoaded = true;
+                } catch (err) {
+                    console.warn('Could not load vocabulary definitions:', err);
+                    this.vocabFailed = true;
+                }
+            },
+            vocabEntries(item) {
+                return item.vocabTerms.map(term => ({ term, defs: this.vocab[normTerm(term)] || [] }));
+            },
+
+            // ---- filtering
+            get allAreas() { return unique(this.items.map(i => i.area)).sort(); },
+
+            get activeFilterCount() {
+                const f = this.filters;
+                return (f.area ? 1 : 0) + f.levels.length + f.strands.length + f.subStrands.length + f.subSubStrands.length;
+            },
+
+            // One entry per curriculum area (ignores the filters), with its purpose statement if there is one.
+            get curriculumMap() {
+                return [...groupBy(this.items, i => i.area)]
+                    .map(([area, rows]) => ({
+                        area,
+                        slug: area.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''),
+                        levels: unique(rows.map(i => i.level)).sort(compareLevels),
+                        strands: unique(rows.map(i => i.strand)).length,
+                        subStrands: unique(rows.map(i => i.subStrand)).length,
+                        subSubStrands: unique(rows.map(i => i.subSubStrand)).length,
+                        structure: [...groupBy(rows, i => i.strand)].sort((a, b) => numericCompare(a[0], b[0])).map(([strand, sr]) => ({
+                            strand,
+                            subs: [...groupBy(sr, i => i.subStrand)].sort((a, b) => numericCompare(a[0], b[0])).map(([subStrand, ss]) => ({
+                                subStrand, subSubs: unique(ss.map(i => i.subSubStrand)).sort(numericCompare)
+                            }))
+                        })),
+                        records: rows.length,
+                        purpose: PURPOSE_STATEMENTS.find(p => p.match.test(area)) || null
+                    }))
+                    .sort((a, b) => a.area.localeCompare(b.area))
+                    .map((a, i) => ({ ...a, theme: AREA_THEMES[i % AREA_THEMES.length] }));
+            },
+            isMapOpen(area) { return this.mapOpen[area] !== false; },
+            setMapOpen(open) { this.curriculumMap.forEach(a => { this.mapOpen[a.area] = open; }); },
+            exploreArea(area, subSub) {
+                this.filters.area = area;
+                this.filters.subSubStrands = subSub ? [subSub] : [];
+                this.view = 'summary';
+                this.apply();
+                window.scrollTo({ top: 0 });
+            },
+
+            get purpose() {
+                const area = this.filters.area;
+                return area ? PURPOSE_STATEMENTS.find(p => p.match.test(area)) || null : null;
+            },
+
+            // Recomputes the cascading filter options, the filtered list and every derived view.
+            apply() {
+                const f = this.filters;
+                const prune = (selected, available) => selected.filter(v => available.includes(v));
+
+                const inArea = this.items.filter(i => !f.area || i.area === f.area);
+                this.options.levels = unique(inArea.map(i => i.level)).sort(compareLevels);
+                f.levels = prune(f.levels, this.options.levels);
+
+                const inLevel = inArea.filter(i => !f.levels.length || f.levels.includes(i.level));
+                this.options.strands = unique(inLevel.map(i => i.strand)).sort();
+                f.strands = prune(f.strands, this.options.strands);
+
+                const inStrand = inLevel.filter(i => !f.strands.length || f.strands.includes(i.strand));
+                this.options.subStrands = unique(inStrand.map(i => i.subStrand)).sort();
+                f.subStrands = prune(f.subStrands, this.options.subStrands);
+
+                const inSub = inStrand.filter(i => !f.subStrands.length || f.subStrands.includes(i.subStrand));
+                this.options.subSubStrands = unique(inSub.map(i => i.subSubStrand)).sort(numericCompare);
+                f.subSubStrands = prune(f.subSubStrands, this.options.subSubStrands);
+
+                const q = f.search.trim().toLowerCase();
+                this.filtered = inSub
+                    .filter(i => (!f.subSubStrands.length || f.subSubStrands.includes(i.subSubStrand)) && (!q || i.searchText.includes(q)))
+                    .sort(compareItems);
+
+                this.summary = buildSummary(this.filtered);
+                this.matrix = buildMatrix(this.filtered);
+                this.tree = buildTree(this.filtered);
+                this.page = 1;
+            },
+
+            setSearch(value) { this.filters.search = value; this.apply(); },
+            toggleFilter(key, value) {
+                const list = this.filters[key];
+                const i = list.indexOf(value);
+                i > -1 ? list.splice(i, 1) : list.push(value);
+                this.apply();
+            },
+            clearFilter(key) { this.filters[key] = []; this.apply(); },
+            selectOptions(key, values) {
+                this.filters[key] = unique([...this.filters[key], ...values]);
+                this.apply();
+            },
+            optionsMatching(key, q) {
+                const needle = (q || '').trim().toLowerCase();
+                return this.options[key].filter(o => !needle || o.toLowerCase().includes(needle));
+            },
+            multiLabel(f) {
+                const sel = this.filters[f.key];
+                if (!sel.length) return f.all;
+                return sel.length === 1 ? sel[0] : sel.length + ' selected';
+            },
+            resetFilters() {
+                this.filters = { search: '', area: '', levels: [], strands: [], subStrands: [], subSubStrands: [] };
+                this.apply();
+            },
+
+            // ---- cards pagination
+            get totalPages() { return Math.max(1, Math.ceil(this.filtered.length / PAGE_SIZE)); },
+            get pageGroups() {
+                const list = this.printing
+                    ? this.filtered
+                    : this.filtered.slice((this.page - 1) * PAGE_SIZE, this.page * PAGE_SIZE);
+                return [...groupBy(list, i => i.area)].map(([area, items]) => ({ area, items }));
+            },
+            goToPage(n) {
+                this.page = Math.min(this.totalPages, Math.max(1, n));
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            },
+
+            // ---- understanding matrix
+            matrixCell(m, row, col) {
+                const [level, strand] = this.levelsAsRows ? [row, col] : [col, row];
+                return m.cells[level + '||' + strand] || [];
+            },
+
+            // ---- know & do matrix
+            kdItems(m, row, col) {
+                const [level, strand] = this.kdLevelsAsRows ? [row, col] : [col, row];
+                return m.itemCells[level + '||' + strand] || [];
+            },
+
+            // ---- summary drill-down (global level, overridable per cell)
+            cellKey(row, level) { return row.area + '||' + level; },
+            depthFor(key) { return key in this.cellDepths ? this.cellDepths[key] : this.summaryDepth; },
+            setCellDepth(key, depth) { this.cellDepths = { ...this.cellDepths, [key]: depth }; },
+            setAllDepths(depth) { this.summaryDepth = depth; this.cellDepths = {}; },
+
+            // ---- modals
+            openDetail(item) { this.detail = item; },
+            openNotes(item) { this.notesItem = item; },
+            openMore(item) { this.moreItem = item; },
+            closeModals() {
+                // Close the top-most modal first (notes sit above details).
+                if (this.moreItem) this.moreItem = null;
+                else if (this.notesItem) this.notesItem = null;
+                else this.detail = null;
+            },
+
+            // ---- visual tree (levels start open; everything else starts collapsed)
+            isOpen(key) {
+                if (this.printing) return true;
+                return key in this.treeOpen ? this.treeOpen[key] : key.startsWith('L:');
+            },
+            toggleNode(key) { this.treeOpen = { ...this.treeOpen, [key]: !this.isOpen(key) }; },
+            setTree(open) {
+                const state = {};
+                this.tree.forEach(lv => {
+                    state[lv.key] = open;
+                    lv.areas.forEach(ar => {
+                        state[ar.key] = open;
+                        ar.strands.forEach(st => { state[st.key] = open; st.subGroups.forEach(sg => { state[sg.key] = open; }); });
+                    });
+                });
+                this.treeOpen = state;
+            },
+            expandTree() { this.setTree(true); },
+            collapseTree() { this.setTree(false); },
+
+            // ---- export
+            exportPdf() {
+                this.printing = true;
+                this.$nextTick(() => { window.print(); this.printing = false; });
+            }
+        };
+    }
+    </script>
+</body>
+</html>
