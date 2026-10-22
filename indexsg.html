@@ -1,0 +1,1376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KDU Explorer (Scottish Government Design System version)</title>
+    <meta name="description" content="Explore the Know, Do and Understand curriculum framework by area, level, strand, sub-strand and sub-sub strand.">
+
+    <!-- Scottish Government Design System v4.3.0 (MIT licence), self-hosted from /sg. Source: https://github.com/scottish-government-design-system/design-system -->
+    <link rel="stylesheet" href="sg/design-system.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <style>
+        /* Explorer-specific layout. Colours are the Design System palette; everything else uses the system's own classes. */
+        :root {
+            --sg-blue: #0065bd; --sg-blue-light: #d9effc; --sg-blue-dark: #00437e;
+            --sg-grey-lighter: #f8f8f8; --sg-grey-light: #ebebeb; --sg-grey-medium: #b3b3b3; --sg-grey: #5e5e5e; --sg-text: #1a1a1a;
+            --sg-green-light: #e6f4de; --sg-green-dark: #1a7032;
+        }
+        [x-cloak] { display: none !important; }
+        .sg-lead-actions { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 1rem 0 1.5rem; }
+        .sg-lead-actions .ds_button { margin: 0; width: auto; }
+
+        /* Filters */
+        .sg-filters { background: var(--sg-grey-lighter); border: 1px solid var(--sg-grey-medium); padding: 1rem; margin-bottom: 1.5rem; }
+        .sg-filters > h2 { margin-top: 0; }
+        .sg-filters__grid { display: grid; gap: 1rem 1.5rem; grid-template-columns: 1fr; padding-top: 1rem; }
+        @media (min-width: 768px) { .sg-filters__grid { grid-template-columns: 1fr 1fr; } }
+        .sg-filters .ds_question, .sg-filters fieldset { margin: 0; }
+        .sg-filters fieldset { border: 0; padding: 0; min-width: 0; }
+        .sg-filters legend { padding: 0; }
+        .sg-filters .ds_details { margin-bottom: 0; }
+        .sg-checks { display: flex; flex-wrap: wrap; gap: 0 1.5rem; }
+        .sg-checks .ds_checkbox { margin: 0.25rem 0; }
+        .sg-multi__list { list-style: none; margin: 0.5rem 0 0; padding: 0; max-height: 16rem; overflow-y: auto; }
+        .sg-multi__list .ds_checkbox { margin: 0.25rem 0; }
+        .sg-multi__tools { display: flex; justify-content: space-between; margin: 0.5rem 0 0; font-size: 0.875rem; }
+        .sg-linkbtn { background: none; border: 0; padding: 0; margin: 0; font: inherit; text-align: left; cursor: pointer; }
+        .sg-chips { list-style: none; display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.5rem 0 0; padding: 0; }
+        .sg-chip { cursor: pointer; border: 0; font: inherit; }
+        .sg-chip::after { content: ' \00d7'; font-weight: 700; }
+        .sg-filters__foot { display: flex; flex-wrap: wrap; gap: 0.75rem 1.5rem; align-items: center; justify-content: space-between; margin-top: 1rem; }
+        .sg-filters__foot p, .sg-filters__foot .ds_button { margin: 0; width: auto; }
+
+        /* View switcher: tabs on larger screens, a select on small ones */
+        .sg-viewselect { display: block; margin-bottom: 1rem; }
+        .sg-tabs { display: none; }
+        @media (min-width: 768px) { .sg-viewselect { display: none; } .sg-tabs { display: block; } }
+        .sg-tabs .ds_tabs__content { margin-top: 0; }
+        .sg-hint { color: var(--sg-grey); font-size: 0.9375rem; margin: 0 0 1rem; }
+
+        /* Segmented drill-down buttons */
+        .sg-seg { display: inline-flex; flex-wrap: wrap; border: 2px solid var(--sg-blue); }
+        .sg-seg__btn { background: #fff; color: var(--sg-blue); border: 0; font: inherit; font-size: 0.875rem; font-weight: 500; padding: 0.375rem 0.75rem; cursor: pointer; }
+        .sg-seg__btn + .sg-seg__btn { border-left: 2px solid var(--sg-blue); }
+        .sg-seg__btn[aria-pressed="true"] { background: var(--sg-blue); color: #fff; }
+        .sg-seg__btn:focus { outline: 3px solid #fdd522; outline-offset: 0; background: #fdd522; color: #1a1a1a; box-shadow: 0 -2px #fdd522, 0 4px #1a1a1a; }
+        .sg-seg--small .sg-seg__btn { font-size: 0.75rem; padding: 0.25rem 0.5rem; }
+        .sg-toolbar { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+        .sg-toolbar p { margin: 0; }
+
+        /* Tables */
+        .sg-table-scroll { overflow-x: auto; }
+        .sg-table-scroll .ds_table { margin-bottom: 0; }
+        .sg-table-scroll th, .sg-table-scroll td { vertical-align: top; overflow-wrap: anywhere; }
+        .sg-table-scroll td ul { margin: 0.25rem 0 0; padding-left: 1.25rem; }
+        .sg-table-scroll td li { margin: 0 0 0.375rem; }
+        .sg-cell { font-size: 0.875rem; line-height: 1.4; }
+        .sg-cell > * + * { margin-top: 0.75rem; }
+        .sg-cell .sg-stmt { font-weight: 500; }
+        .sg-strand { font-weight: 700; color: var(--sg-blue-dark); margin: 0 0 0.25rem; }
+        .sg-box { border: 1px solid var(--sg-grey-medium); background: #fff; padding: 0.625rem; margin-top: 0.5rem; }
+        .sg-box--grey { background: var(--sg-grey-lighter); }
+        .sg-box > * + * { margin-top: 0.5rem; }
+        .sg-record-link { display: inline-flex; flex-wrap: wrap; gap: 0.25rem 0.5rem; align-items: baseline; }
+        .sg-ssub { font-size: 0.75rem; }
+        .sg-tags { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.25rem; }
+        .sg-tags--inline { display: inline-flex; margin: 0 0 0 0.25rem; vertical-align: baseline; }
+        .sg-areabar { background: var(--sg-blue-dark); color: #fff; padding: 0.75rem 1rem; display: flex; justify-content: space-between; gap: 1rem; align-items: baseline; flex-wrap: wrap; }
+        .sg-areabar h2, .sg-areabar h3 { margin: 0; color: #fff; font-size: 1.125rem; }
+        .sg-areabar span { font-size: 0.875rem; }
+        .sg-matrix + .sg-matrix { margin-top: 2rem; }
+
+        /* Know / Do blocks (labelled, never colour alone) */
+        .sg-kd { border-left: 4px solid var(--sg-blue); background: var(--sg-blue-light); padding: 0.5rem 0.75rem; font-size: 0.875rem; line-height: 1.4; }
+        .sg-kd--do { border-left-color: var(--sg-green-dark); background: var(--sg-green-light); }
+        .sg-kd__title { margin: 0 0 0.25rem; font-size: 0.8125rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+        .sg-kd__list { margin: 0; padding-left: 1.125rem; }
+        .sg-kd__list li { margin: 0 0 0.25rem; }
+        .sg-none { margin: 0; font-style: italic; color: var(--sg-grey); }
+        .sg-kdgrid { display: grid; gap: 0.5rem; }
+        @media (min-width: 768px) { .sg-kdgrid--2 { grid-template-columns: 1fr 1fr; } }
+
+        /* Cards */
+        .sg-grid { display: grid; gap: 1rem; grid-template-columns: 1fr; }
+        @media (min-width: 768px) { .sg-grid { grid-template-columns: 1fr 1fr; } }
+        @media (min-width: 1200px) { .sg-grid { grid-template-columns: repeat(3, 1fr); } }
+        .sg-grid .ds_card { margin: 0; }
+        .sg-card__body { padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem; height: 100%; }
+        .sg-card__body h4 { margin: 0; }
+        .sg-card__body p { margin: 0; }
+        .sg-card__label { margin: 0; font-size: 0.8125rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--sg-grey); }
+        .sg-card__foot { margin-top: auto; display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; }
+
+        /* Map */
+        .sg-big-ideas { display: grid; gap: 1rem; grid-template-columns: 1fr; margin-top: 0.5rem; }
+        @media (min-width: 768px) { .sg-big-ideas { grid-template-columns: 1fr 1fr; } }
+        @media (min-width: 1200px) { .sg-big-ideas { grid-template-columns: repeat(3, 1fr); } }
+        .sg-big-ideas > div { border: 1px solid var(--sg-grey-medium); border-top: 4px solid var(--sg-blue); padding: 0.75rem 1rem; }
+        .sg-big-ideas h4 { margin: 0 0 0.5rem; }
+        .sg-big-ideas p { margin: 0; }
+        .sg-structure { display: grid; gap: 1rem; grid-template-columns: 1fr; margin-top: 0.5rem; }
+        @media (min-width: 768px) { .sg-structure { grid-template-columns: 1fr 1fr; } }
+        @media (min-width: 1200px) { .sg-structure { grid-template-columns: repeat(3, 1fr); } }
+        .sg-structure > div { background: var(--sg-grey-lighter); border: 1px solid var(--sg-grey-light); padding: 0.75rem; }
+        .sg-structure p { margin: 0 0 0.25rem; }
+        .sg-structure .sg-tags { margin: 0 0 0.75rem; }
+        .sg-jump { display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; list-style: none; padding: 0; margin: 0 0 1.5rem; }
+        .sg-tagbtn { cursor: pointer; border: 0; font: inherit; }
+        .sg-tagbtn:hover { background: var(--sg-blue-dark); color: #fff; }
+        .sg-purpose { border-left: 4px solid var(--sg-blue); background: var(--sg-grey-lighter); padding: 1rem 1.25rem; margin-bottom: 1.5rem; }
+        .sg-purpose > h2 { margin-top: 0; }
+
+        /* Tree: nested disclosures */
+        .sg-node { margin: 0.5rem 0 0; }
+        .sg-node .ds_details__text { margin-bottom: 0; }
+        .sg-node > summary { font-weight: 500; }
+        .sg-node__count { margin-left: 0.5rem; font-size: 0.875rem; color: var(--sg-grey); font-weight: 400; }
+        .sg-record { border: 1px solid var(--sg-grey-medium); background: #fff; padding: 0.75rem; margin-top: 0.5rem; }
+        .sg-record__title { margin: 0 0 0.5rem; font-size: 1rem; }
+        .sg-record__label { margin: 0; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--sg-grey); }
+        .sg-record__head { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; justify-content: space-between; align-items: flex-start; }
+        .sg-record__links { display: flex; gap: 1rem; }
+        .sg-understanding { background: var(--sg-grey-lighter); border-left: 4px solid var(--sg-blue); padding: 0.5rem 0.75rem; margin: 0.5rem 0; }
+        .sg-understanding p { margin: 0 0 0.25rem; }
+
+        /* Record details panel */
+        .sg-detail { border: 2px solid var(--sg-blue); background: #fff; padding: 1rem 1.25rem; margin: 2rem 0 0; scroll-margin-top: 1rem; }
+        .sg-detail:focus { outline: 3px solid #fdd522; outline-offset: 2px; }
+        .sg-detail__head { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; justify-content: space-between; align-items: center; }
+        .sg-detail__head h2 { margin: 0; }
+        .sg-detail__head .ds_button { margin: 0; width: auto; }
+
+        .sg-status { margin: 3rem 0; }
+        .sg-pager { margin-top: 1.5rem; }
+
+        /* Stacked tables on phones */
+        @media (max-width: 767px) {
+            .sg-stack, .sg-stack thead, .sg-stack tbody, .sg-stack tr, .sg-stack th, .sg-stack td { display: block; width: 100%; }
+            .sg-stack thead { display: none; }
+            .sg-stack tr { border-bottom: 6px solid var(--sg-grey-light); }
+            .sg-stack td.sg-empty { display: none; }
+            .sg-stack td[data-level]::before { content: attr(data-level); display: inline-block; margin-bottom: 0.375rem; font-weight: 700; color: var(--sg-blue-dark); }
+        }
+
+        @media print {
+            .ds_skip-links, .ds_phase-banner, .ds_site-header, .ds_site-footer, .no-print, .sg-filters, .sg-tabs, .sg-viewselect, .sg-detail, .sg-pager { display: none !important; }
+            .sg-table-scroll { overflow: visible; }
+            .ds_details__text { display: block !important; }
+        }
+    </style>
+</head>
+<body x-data="curriculumApp()" @keydown.escape.window="closeModals()">
+<div class="ds_page">
+    <div class="ds_page__top">
+        <div class="ds_skip-links">
+            <ul class="ds_skip-links__list">
+                <li class="ds_skip-links__item"><a class="ds_skip-links__link" href="#main-content">Skip to main content</a></li>
+            </ul>
+        </div>
+
+        <div class="ds_phase-banner">
+            <div class="ds_wrapper">
+                <p class="ds_phase-banner__content">
+                    <strong class="ds_tag ds_phase-banner__tag">Beta</strong>
+                    <span>This is a prototype built with the Scottish Government Design System. It is not an official Scottish Government service.</span>
+                </p>
+            </div>
+        </div>
+
+        <header class="ds_site-header ds_site-header--gradient">
+            <div class="ds_wrapper">
+                <div class="ds_site-header__content">
+                    <div class="ds_site-branding">
+                        <a class="ds_site-branding__title" href="indexsg.html">KDU Explorer</a>
+                    </div>
+                </div>
+            </div>
+        </header>
+    </div>
+
+    <div class="ds_page__middle">
+        <div class="ds_wrapper">
+            <main id="main-content">
+                <header class="ds_page-header">
+                    <span class="ds_page-header__label ds_content-label">Curriculum</span>
+                    <h1 class="ds_page-header__title">Know, Do and Understand explorer</h1>
+                </header>
+                <p class="ds_leader">Explore the framework by curriculum area, level, strand, sub-strand and sub-sub strand.</p>
+                <div class="sg-lead-actions no-print">
+                    <a class="ds_button ds_button--secondary ds_button--small" href="planner.html">Learning planner</a>
+                    <button type="button" class="ds_button ds_button--secondary ds_button--small" @click="exportPdf()">Save as PDF</button>
+                </div>
+
+                <!-- Loading and error states -->
+                <p x-show="loading" class="sg-status" role="status">Loading the curriculum&hellip;</p>
+
+                <div x-show="error" x-cloak class="ds_error-summary" role="alert">
+                    <h2 class="ds_error-summary__title">There is a problem</h2>
+                    <p x-text="error"></p>
+                    <button type="button" class="ds_button" @click="init()">Try again</button>
+                </div>
+
+                <template x-for="w in warnings" :key="w">
+                    <div class="ds_warning-text-wrapper">
+                        <strong class="ds_warning-text__icon" aria-hidden="true"></strong>
+                        <strong class="visually-hidden">Warning</strong>
+                        <div class="ds_warning-text" x-text="w"></div>
+                    </div>
+                </template>
+
+                <template x-if="!loading && !error">
+                    <div>
+                        <!-- ============ Search and filters ============ -->
+                        <section class="sg-filters no-print" aria-labelledby="filters-title">
+                            <h2 id="filters-title" class="ds_h3">Search and filter</h2>
+
+                            <div class="ds_question">
+                                <label class="ds_label" for="search">Search the curriculum</label>
+                                <div class="ds_input__wrapper">
+                                    <input class="ds_input" type="search" id="search" autocomplete="off"
+                                           :value="filters.search" @input.debounce.200ms="setSearch($event.target.value)">
+                                </div>
+                            </div>
+
+                            <details class="ds_details" :open="filtersOpen" @toggle="filtersOpen = $event.target.open" style="margin-top:1rem">
+                                <summary class="ds_details__summary">
+                                    Filters<span x-show="activeFilterCount" x-text="' (' + activeFilterCount + ' applied)'"></span>
+                                </summary>
+                                <div class="ds_details__text">
+                                    <div class="sg-filters__grid">
+                                        <!-- Curriculum area -->
+                                        <div class="ds_question">
+                                            <label class="ds_label" for="areaSelect">Curriculum area</label>
+                                            <div class="ds_select-wrapper">
+                                                <select class="ds_select" id="areaSelect" x-model="filters.area" @change="apply()">
+                                                    <option value="">All curriculum areas</option>
+                                                    <template x-for="a in allAreas" :key="a">
+                                                        <option :value="a" x-text="a"></option>
+                                                    </template>
+                                                </select>
+                                                <span class="ds_select-arrow" aria-hidden="true"></span>
+                                            </div>
+                                        </div>
+
+                                        <!-- Levels -->
+                                        <fieldset>
+                                            <legend class="ds_label">Levels</legend>
+                                            <div class="ds_checkboxes sg-checks">
+                                                <template x-for="l in options.levels" :key="l">
+                                                    <div class="ds_checkbox ds_checkbox--small">
+                                                        <input class="ds_checkbox__input" type="checkbox" :id="'lvl-' + l" :checked="filters.levels.includes(l)" @change="toggleFilter('levels', l)">
+                                                        <label class="ds_checkbox__label" :for="'lvl-' + l" x-text="l"></label>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </fieldset>
+
+                                        <!-- Strand, sub-strand and sub-sub strand -->
+                                        <template x-for="f in multiFilters" :key="f.key">
+                                            <div x-show="options[f.key].length">
+                                                <details class="ds_details">
+                                                    <summary class="ds_details__summary" x-text="f.label + ': ' + multiLabel(f)"></summary>
+                                                    <div class="ds_details__text" x-data="{ q: '' }">
+                                                        <label class="ds_label" :for="'q-' + f.key" x-text="'Search ' + f.label.toLowerCase()"></label>
+                                                        <input class="ds_input" type="search" :id="'q-' + f.key" x-model="q" autocomplete="off">
+                                                        <p class="sg-multi__tools">
+                                                            <button type="button" class="ds_link sg-linkbtn" @click="selectOptions(f.key, optionsMatching(f.key, q))">Select all<span x-show="q"> shown</span></button>
+                                                            <button type="button" class="ds_link sg-linkbtn" @click="clearFilter(f.key)">Clear</button>
+                                                        </p>
+                                                        <ul class="sg-multi__list">
+                                                            <template x-for="(o, oi) in optionsMatching(f.key, q)" :key="o">
+                                                                <li>
+                                                                    <div class="ds_checkbox ds_checkbox--small">
+                                                                        <input class="ds_checkbox__input" type="checkbox" :id="'opt-' + f.key + '-' + oi" :checked="filters[f.key].includes(o)" @change="toggleFilter(f.key, o)">
+                                                                        <label class="ds_checkbox__label" :for="'opt-' + f.key + '-' + oi" x-text="o"></label>
+                                                                    </div>
+                                                                </li>
+                                                            </template>
+                                                        </ul>
+                                                        <p x-show="!optionsMatching(f.key, q).length" class="sg-none">No matches.</p>
+                                                    </div>
+                                                </details>
+                                                <ul class="sg-chips" x-show="filters[f.key].length" :aria-label="'Selected ' + f.label.toLowerCase()">
+                                                    <template x-for="v in filters[f.key]" :key="v">
+                                                        <li><button type="button" class="ds_tag ds_tag--blue sg-chip" @click="toggleFilter(f.key, v)"><span x-text="v"></span><span class="visually-hidden"> (remove this filter)</span></button></li>
+                                                    </template>
+                                                </ul>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </details>
+
+                            <div class="sg-filters__foot">
+                                <p role="status" aria-live="polite" x-text="filtered.length + ' of ' + items.length + ' records'"></p>
+                                <button type="button" class="ds_button ds_button--secondary ds_button--small" @click="resetFilters()" x-show="activeFilterCount || filters.search">Reset filters</button>
+                            </div>
+                        </section>
+
+                        <!-- ============ Purpose statement (a single area is selected) ============ -->
+                        <template x-if="purpose && view !== 'map'">
+                            <section class="sg-purpose" aria-labelledby="purpose-title">
+                                <h2 id="purpose-title" class="ds_h3" x-text="purpose.title"></h2>
+                                <p class="sg-hint" x-text="purpose.subtitle"></p>
+                                <template x-for="(para, pi) in purpose.paragraphs" :key="pi"><p x-text="para"></p></template>
+                                <details class="ds_details">
+                                    <summary class="ds_details__summary">Big ideas</summary>
+                                    <div class="ds_details__text">
+                                        <div class="sg-big-ideas">
+                                            <template x-for="(idea, ii) in purpose.bigIdeas" :key="ii">
+                                                <div><h4 x-text="idea.title"></h4><p x-text="idea.text"></p></div>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </details>
+                            </section>
+                        </template>
+
+                        <!-- ============ View switcher ============ -->
+                        <div class="sg-viewselect no-print">
+                            <label class="ds_label" for="viewSelect">View</label>
+                            <div class="ds_select-wrapper">
+                                <select class="ds_select" id="viewSelect" x-model="view">
+                                    <template x-for="v in views" :key="v.id"><option :value="v.id" :selected="view === v.id" x-text="v.label"></option></template>
+                                </select>
+                                <span class="ds_select-arrow" aria-hidden="true"></span>
+                            </div>
+                        </div>
+
+                        <div class="ds_tabs js-initialised sg-tabs">
+                            <nav class="ds_tabs__navigation no-print" aria-label="Views">
+                                <ul class="ds_tabs__list" role="tablist">
+                                    <template x-for="v in views" :key="v.id">
+                                        <li class="ds_tabs__tab" role="presentation" :class="view === v.id && 'ds_current'">
+                                            <a class="ds_tabs__tab-link" href="#view-panel" role="tab" :id="'tab-' + v.id" aria-controls="view-panel"
+                                               :aria-selected="view === v.id ? 'true' : 'false'" @click.prevent="view = v.id" x-text="v.label"></a>
+                                        </li>
+                                    </template>
+                                </ul>
+                            </nav>
+                        </div>
+
+                        <div id="view-panel" class="ds_tabs__content ds_tabs__content--bordered" style="padding: 1rem; border: 1px solid var(--sg-grey-medium); margin-top: 0" role="tabpanel" :aria-labelledby="'tab-' + view" tabindex="-1">
+
+                            <div x-show="!filtered.length && view !== 'map'" class="sg-status" role="status">
+                                <h2 class="ds_h3">No matching records</h2>
+                                <p>Try a broader search or clear some filters.</p>
+                                <button type="button" class="ds_button ds_button--secondary ds_button--small" @click="resetFilters()">Reset filters</button>
+                            </div>
+
+                            <!-- ============ Curriculum map ============ -->
+                            <template x-if="view === 'map' && items.length">
+                                <section aria-labelledby="map-title">
+                                    <h2 id="map-title" class="ds_h3">Curriculum map</h2>
+                                    <div class="sg-toolbar">
+                                        <p class="sg-hint">Every area with its purpose statement, big ideas and structure. Use <strong>Explore</strong> to open an area in the Summary view.</p>
+                                        <div class="no-print" style="display:flex;gap:0.5rem">
+                                            <button type="button" class="ds_button ds_button--secondary ds_button--small" style="margin:0;width:auto" @click="setMapOpen(true)">Expand all</button>
+                                            <button type="button" class="ds_button ds_button--secondary ds_button--small" style="margin:0;width:auto" @click="setMapOpen(false)">Collapse all</button>
+                                        </div>
+                                    </div>
+
+                                    <nav class="no-print" aria-label="Jump to a curriculum area">
+                                        <ul class="sg-jump">
+                                            <template x-for="a in curriculumMap" :key="a.area">
+                                                <li><a class="ds_link" :href="'#area-' + a.slug" x-text="a.area"></a></li>
+                                            </template>
+                                        </ul>
+                                    </nav>
+
+                                    <div class="ds_accordion">
+                                        <template x-for="a in curriculumMap" :key="a.area">
+                                            <div class="ds_accordion-item" :id="'area-' + a.slug">
+                                                <input type="checkbox" class="visually-hidden ds_accordion-item__control" :id="'map-' + a.slug"
+                                                       :aria-labelledby="'map-' + a.slug + '-h'" :checked="isMapOpen(a.area)" @change="mapOpen[a.area] = $event.target.checked">
+                                                <div class="ds_accordion-item__header">
+                                                    <h3 :id="'map-' + a.slug + '-h'" class="ds_accordion-item__title" x-text="a.area"></h3>
+                                                    <span class="ds_accordion-item__indicator"></span>
+                                                    <label class="ds_accordion-item__label" :for="'map-' + a.slug"><span class="visually-hidden">Show this section</span></label>
+                                                </div>
+                                                <div class="ds_accordion-item__body">
+                                                    <p class="sg-hint"
+                                                       x-text="a.levels.length + ' level' + (a.levels.length === 1 ? '' : 's') + ' · ' + a.strands + ' strand' + (a.strands === 1 ? '' : 's') + ' · ' + a.subStrands + ' sub-strand' + (a.subStrands === 1 ? '' : 's') + (a.subSubStrands ? ' · ' + a.subSubStrands + ' sub-sub strand' + (a.subSubStrands === 1 ? '' : 's') : '') + ' · ' + a.records + ' understanding' + (a.records === 1 ? '' : 's')"></p>
+                                                    <div class="sg-tags">
+                                                        <template x-for="l in a.levels" :key="l"><span :class="levelTag(l)" x-text="l"></span></template>
+                                                    </div>
+                                                    <p class="no-print" style="margin-top:1rem"><button type="button" class="ds_button ds_button--small" style="margin:0;width:auto" @click="exploreArea(a.area)">Explore <span x-text="a.area"></span> <span class="visually-hidden">in the Summary view</span></button></p>
+
+                                                    <template x-if="a.subSubStrands">
+                                                        <div>
+                                                            <h4 class="ds_h4">Strands, sub-strands and sub-sub strands</h4>
+                                                            <p class="sg-hint">Select a sub-sub strand to explore it.</p>
+                                                            <div class="sg-structure">
+                                                                <template x-for="st in a.structure" :key="st.strand">
+                                                                    <div>
+                                                                        <p class="sg-strand" x-text="st.strand"></p>
+                                                                        <template x-for="sb in st.subs" :key="sb.subStrand">
+                                                                            <div>
+                                                                                <p x-text="sb.subStrand" style="font-weight:500"></p>
+                                                                                <div class="sg-tags">
+                                                                                    <template x-for="ss in sb.subSubs" :key="ss">
+                                                                                        <button type="button" class="ds_tag ds_tag--purple sg-tagbtn" @click="exploreArea(a.area, ss)"><span x-text="ss"></span><span class="visually-hidden"> (explore this sub-sub strand)</span></button>
+                                                                                    </template>
+                                                                                    <span x-show="!sb.subSubs.length" class="sg-none">No sub-sub strands</span>
+                                                                                </div>
+                                                                            </div>
+                                                                        </template>
+                                                                    </div>
+                                                                </template>
+                                                            </div>
+                                                        </div>
+                                                    </template>
+
+                                                    <template x-if="a.purpose">
+                                                        <div>
+                                                            <h4 class="ds_h4">Purpose statement</h4>
+                                                            <template x-for="(para, pi) in a.purpose.paragraphs" :key="pi"><p x-text="para"></p></template>
+                                                            <h4 class="ds_h4">Big ideas</h4>
+                                                            <div class="sg-big-ideas">
+                                                                <template x-for="(idea, ii) in a.purpose.bigIdeas" :key="ii">
+                                                                    <div><h5 x-text="idea.title" style="margin:0 0 0.5rem;font-size:1rem"></h5><p x-text="idea.text"></p></div>
+                                                                </template>
+                                                            </div>
+                                                        </div>
+                                                    </template>
+                                                    <template x-if="!a.purpose">
+                                                        <p class="sg-none" style="margin-top:1rem">No purpose statement or big ideas have been added for this area yet.</p>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </section>
+                            </template>
+
+                            <!-- ============ Summary ============ -->
+                            <template x-if="filtered.length && view === 'summary'">
+                                <section aria-labelledby="summary-title">
+                                    <h2 id="summary-title" class="ds_h3">Summary</h2>
+                                    <div class="sg-toolbar">
+                                        <p class="sg-hint">Curriculum areas (rows) by level (columns). Choose how much detail to show for every cell, or use the buttons inside a cell to change just that one.</p>
+                                        <div class="sg-seg no-print" role="group" aria-label="Detail shown in every cell">
+                                            <template x-for="d in depthOptions" :key="d.id">
+                                                <button type="button" class="sg-seg__btn" :aria-pressed="summaryDepth === d.id ? 'true' : 'false'" @click="setAllDepths(d.id)" x-text="d.label"></button>
+                                            </template>
+                                        </div>
+                                    </div>
+
+                                    <div class="sg-table-scroll">
+                                        <table class="ds_table sg-stack">
+                                            <caption class="visually-hidden">Understanding statements by curriculum area and level</caption>
+                                            <thead>
+                                                <tr>
+                                                    <th scope="col">Curriculum area</th>
+                                                    <template x-for="lv in summary.levels" :key="lv">
+                                                        <th scope="col"><span :class="levelTag(lv)" x-text="lv"></span></th>
+                                                    </template>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <template x-for="row in summary.rows" :key="row.area">
+                                                    <tr>
+                                                        <th scope="row" x-text="row.area"></th>
+                                                        <template x-for="lv in summary.levels" :key="lv">
+                                                            <td class="sg-cell" :data-level="lv" :class="!row.cells[lv].statements.length && 'sg-empty'">
+                                                                <template x-if="row.cells[lv].statements.length">
+                                                                    <div>
+                                                                        <div class="sg-seg sg-seg--small no-print" role="group" :aria-label="'Detail for ' + row.area + ', ' + lv">
+                                                                            <template x-for="d in depthOptions" :key="d.id">
+                                                                                <button type="button" class="sg-seg__btn" :aria-pressed="depthFor(cellKey(row, lv)) === d.id ? 'true' : 'false'" @click="setCellDepth(cellKey(row, lv), d.id)" x-text="d.short"></button>
+                                                                            </template>
+                                                                        </div>
+
+                                                                        <template x-if="depthFor(cellKey(row, lv)) === 0">
+                                                                            <ul>
+                                                                                <template x-for="(s, i) in row.cells[lv].statements" :key="i"><li class="sg-stmt" x-text="s"></li></template>
+                                                                            </ul>
+                                                                        </template>
+
+                                                                        <template x-if="depthFor(cellKey(row, lv)) === 1">
+                                                                            <div>
+                                                                                <template x-for="st in row.cells[lv].strands" :key="st.strand">
+                                                                                    <div>
+                                                                                        <p class="sg-strand" x-text="st.strand"></p>
+                                                                                        <ul>
+                                                                                            <template x-for="(g, gi) in st.groups" :key="gi">
+                                                                                                <li><span class="sg-stmt" x-text="g.statement"></span>
+                                                                                                    <span x-show="g.subSubs.length" class="sg-tags">
+                                                                                                        <template x-for="ss in g.subSubs" :key="ss"><span class="ds_tag ds_tag--purple sg-ssub"><span class="visually-hidden">Sub-sub strand: </span><span x-text="ss"></span></span></template>
+                                                                                                    </span>
+                                                                                                </li>
+                                                                                            </template>
+                                                                                        </ul>
+                                                                                    </div>
+                                                                                </template>
+                                                                            </div>
+                                                                        </template>
+
+                                                                        <template x-if="depthFor(cellKey(row, lv)) === 2">
+                                                                            <div>
+                                                                                <template x-for="st in row.cells[lv].strands" :key="st.strand">
+                                                                                    <div>
+                                                                                        <p class="sg-strand" x-text="st.strand"></p>
+                                                                                        <template x-for="(g, gi) in st.groups" :key="gi">
+                                                                                            <div class="sg-box sg-box--grey">
+                                                                                                <p class="sg-stmt" style="margin:0" x-text="g.statement"></p>
+                                                                                                <template x-for="it in g.items" :key="it.id">
+                                                                                                    <div>
+                                                                                                        <div class="sg-record__head">
+                                                                                                            <span class="sg-record-link">
+                                                                                                                <button type="button" class="ds_link sg-linkbtn" @click="openDetail(it)" x-text="it.subStrand"></button>
+                                                                                                                <span x-show="it.subSubStrand" class="ds_tag ds_tag--purple sg-ssub"><span class="visually-hidden">Sub-sub strand: </span><span x-text="it.subSubStrand"></span></span>
+                                                                                                            </span>
+                                                                                                            <span class="sg-record__links">
+                                                                                                                <button type="button" x-show="it.hasNotes" class="ds_link sg-linkbtn" @click="openNotes(it)">Notes</button>
+                                                                                                                <button type="button" x-show="it.hasMore" class="ds_link sg-linkbtn" @click="openMore(it)">More info</button>
+                                                                                                            </span>
+                                                                                                        </div>
+                                                                                                        <div class="sg-kdgrid" style="margin-top:0.5rem" x-html="knowDoHtml(it)"></div>
+                                                                                                    </div>
+                                                                                                </template>
+                                                                                            </div>
+                                                                                        </template>
+                                                                                    </div>
+                                                                                </template>
+                                                                            </div>
+                                                                        </template>
+                                                                    </div>
+                                                                </template>
+                                                                <span x-show="!row.cells[lv].statements.length" aria-label="No records">&mdash;</span>
+                                                            </td>
+                                                        </template>
+                                                    </tr>
+                                                </template>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </section>
+                            </template>
+
+                            <!-- ============ Cards ============ -->
+                            <template x-if="filtered.length && view === 'cards'">
+                                <section aria-labelledby="cards-title">
+                                    <h2 id="cards-title" class="visually-hidden">Cards</h2>
+                                    <template x-for="group in pageGroups" :key="group.area">
+                                        <div style="margin-bottom:2rem">
+                                            <div class="sg-areabar"><h3 x-text="group.area"></h3><span x-text="group.items.length + ' items'"></span></div>
+                                            <div class="sg-grid" style="margin-top:1rem">
+                                                <template x-for="item in group.items" :key="item.id">
+                                                    <article class="ds_card">
+                                                        <div class="sg-card__body">
+                                                            <div><span :class="levelTag(item.level)" x-text="item.level"></span></div>
+                                                            <div>
+                                                                <p class="sg-card__label">Strand</p>
+                                                                <p x-text="item.strand"></p>
+                                                                <h4 class="ds_h4" style="margin-top:0.5rem" x-text="item.subStrand"></h4>
+                                                                <p x-show="item.subSubStrand" style="margin-top:0.25rem"><span class="sg-card__label">Sub-sub strand</span> <span class="ds_tag ds_tag--purple sg-ssub" x-text="item.subSubStrand"></span></p>
+                                                            </div>
+                                                            <div>
+                                                                <p class="sg-card__label">Understanding</p>
+                                                                <p style="font-weight:500" x-text="item.statement || 'No statement specified.'"></p>
+                                                            </div>
+                                                            <div class="sg-kdgrid" x-html="knowDoHtml(item)"></div>
+                                                            <div class="sg-card__foot">
+                                                                <button type="button" class="ds_link sg-linkbtn" @click="openDetail(item)">View details<span class="visually-hidden"> for <span x-text="item.subStrand"></span></span></button>
+                                                                <button type="button" x-show="item.hasNotes" class="ds_link sg-linkbtn" @click="openNotes(item)">Notes</button>
+                                                                <button type="button" x-show="item.hasMore" class="ds_link sg-linkbtn" @click="openMore(item)">More info</button>
+                                                            </div>
+                                                        </div>
+                                                    </article>
+                                                </template>
+                                            </div>
+                                        </div>
+                                    </template>
+
+                                    <nav x-show="totalPages > 1" class="ds_pagination sg-pager no-print" aria-label="Pagination">
+                                        <ul class="ds_pagination__list">
+                                            <li class="ds_pagination__item" x-show="page > 1">
+                                                <a class="ds_pagination__link ds_pagination__link--text ds_pagination__link--icon" href="#cards-title" @click.prevent="goToPage(page - 1)">
+                                                    <svg class="ds_icon" aria-hidden="true" role="img"><use href="sg/icons.stack.svg#chevron_left"></use></svg>
+                                                    <span class="ds_pagination__link-label">Previous<span class="visually-hidden"> page</span></span>
+                                                </a>
+                                            </li>
+                                            <template x-for="(n, ni) in pageList" :key="ni">
+                                                <li class="ds_pagination__item">
+                                                    <span x-show="n === '…'" class="ds_pagination__link ds_pagination__link--ellipsis">&hellip;</span>
+                                                    <a x-show="n !== '…'" class="ds_pagination__link" :class="n === page && 'ds_current'" href="#cards-title"
+                                                       :aria-current="n === page ? 'page' : null" @click.prevent="goToPage(n)">
+                                                        <span class="visually-hidden">Page </span><span class="ds_pagination__link-label" x-text="n"></span>
+                                                    </a>
+                                                </li>
+                                            </template>
+                                            <li class="ds_pagination__item" x-show="page < totalPages">
+                                                <a class="ds_pagination__link ds_pagination__link--text ds_pagination__link--icon" href="#cards-title" @click.prevent="goToPage(page + 1)">
+                                                    <span class="ds_pagination__link-label">Next<span class="visually-hidden"> page</span></span>
+                                                    <svg class="ds_icon" aria-hidden="true" role="img"><use href="sg/icons.stack.svg#chevron_right"></use></svg>
+                                                </a>
+                                            </li>
+                                        </ul>
+                                    </nav>
+                                </section>
+                            </template>
+
+                            <!-- ============ Visual tree ============ -->
+                            <template x-if="filtered.length && view === 'tree'">
+                                <section aria-labelledby="tree-title">
+                                    <h2 id="tree-title" class="ds_h3">Visual tree</h2>
+                                    <div class="sg-toolbar">
+                                        <p class="sg-hint">Level &rarr; curriculum area &rarr; strand (with its understanding) &rarr; sub-strand &rarr; sub-sub strand (with Know and Do). Select a heading to open or close it.</p>
+                                        <div class="no-print" style="display:flex;gap:0.5rem">
+                                            <button type="button" class="ds_button ds_button--secondary ds_button--small" style="margin:0;width:auto" @click="expandTree()">Expand all</button>
+                                            <button type="button" class="ds_button ds_button--secondary ds_button--small" style="margin:0;width:auto" @click="collapseTree()">Collapse all</button>
+                                        </div>
+                                    </div>
+
+                                    <p><strong x-text="filters.area || 'Curriculum'"></strong> <span class="sg-node__count" x-text="filtered.length + ' records'"></span></p>
+
+                                    <template x-for="lv in tree" :key="lv.key">
+                                        <details class="ds_details sg-node" :open="isOpen(lv.key)" @toggle="setNode(lv.key, $event.target.open)">
+                                            <summary class="ds_details__summary"><span :class="levelTag(lv.level)" x-text="lv.level"></span><span class="sg-node__count" x-text="lv.count + (lv.count === 1 ? ' item' : ' items')"></span></summary>
+                                            <div class="ds_details__text">
+                                                <template x-for="ar in lv.areas" :key="ar.key">
+                                                    <details class="ds_details sg-node" :open="isOpen(ar.key)" @toggle="setNode(ar.key, $event.target.open)">
+                                                        <summary class="ds_details__summary"><span x-text="ar.area"></span><span class="sg-node__count" x-text="ar.count"></span></summary>
+                                                        <div class="ds_details__text">
+                                                            <template x-for="st in ar.strands" :key="st.key">
+                                                                <details class="ds_details sg-node" :open="isOpen(st.key)" @toggle="setNode(st.key, $event.target.open)">
+                                                                    <summary class="ds_details__summary"><span x-text="'Strand: ' + st.strand"></span><span class="sg-node__count" x-text="st.subStrandCount + (st.subStrandCount === 1 ? ' sub-strand' : ' sub-strands') + (st.subSubCount ? ' · ' + st.subSubCount + (st.subSubCount === 1 ? ' sub-sub strand' : ' sub-sub strands') : '')"></span></summary>
+                                                                    <div class="ds_details__text">
+                                                                        <div class="sg-understanding">
+                                                                            <p class="sg-record__label">Understanding</p>
+                                                                            <template x-for="(stmt, si) in st.statements" :key="si">
+                                                                                <p><span x-show="st.statements.length > 1" class="ds_tag ds_tag--blue" x-text="'U' + (si + 1)"></span> <span style="font-weight:500" x-text="stmt"></span></p>
+                                                                            </template>
+                                                                            <p x-show="!st.statements.length" class="sg-none">No understanding statement.</p>
+                                                                        </div>
+
+                                                                        <template x-for="sg in st.subGroups" :key="sg.key">
+                                                                            <div>
+                                                                                <template x-if="sg.hasSub">
+                                                                                    <details class="ds_details sg-node" :open="isOpen(sg.key)" @toggle="setNode(sg.key, $event.target.open)">
+                                                                                        <summary class="ds_details__summary"><span x-text="'Sub-strand: ' + sg.subStrand"></span><span class="sg-node__count" x-text="sg.subSubCount + (sg.subSubCount === 1 ? ' sub-sub strand' : ' sub-sub strands')"></span></summary>
+                                                                                        <div class="ds_details__text">
+                                                                                            <template x-for="leaf in sg.leaves" :key="leaf.item.id">
+                                                                                                <div class="sg-record">
+                                                                                                    <div class="sg-record__head">
+                                                                                                        <div>
+                                                                                                            <p class="sg-record__label">Sub-sub strand</p>
+                                                                                                            <h5 class="sg-record__title" x-text="leaf.item.subSubStrand || 'No sub-sub strand'"></h5>
+                                                                                                        </div>
+                                                                                                        <span class="sg-record__links">
+                                                                                                            <span x-show="leaf.ref" class="ds_tag ds_tag--blue" x-text="'U' + leaf.ref"></span>
+                                                                                                            <button type="button" x-show="leaf.item.hasNotes" class="ds_link sg-linkbtn" @click="openNotes(leaf.item)">Notes</button>
+                                                                                                            <button type="button" x-show="leaf.item.hasMore" class="ds_link sg-linkbtn" @click="openMore(leaf.item)">More info</button>
+                                                                                                        </span>
+                                                                                                    </div>
+                                                                                                    <div class="sg-kdgrid sg-kdgrid--2" x-html="knowDoHtml(leaf.item)"></div>
+                                                                                                </div>
+                                                                                            </template>
+                                                                                        </div>
+                                                                                    </details>
+                                                                                </template>
+                                                                                <template x-if="!sg.hasSub">
+                                                                                    <div>
+                                                                                        <template x-for="leaf in sg.leaves" :key="leaf.item.id">
+                                                                                            <div class="sg-record">
+                                                                                                <div class="sg-record__head">
+                                                                                                    <div>
+                                                                                                        <p class="sg-record__label">Sub-strand</p>
+                                                                                                        <h5 class="sg-record__title" x-text="leaf.item.subStrand"></h5>
+                                                                                                    </div>
+                                                                                                    <span class="sg-record__links">
+                                                                                                        <span x-show="leaf.ref" class="ds_tag ds_tag--blue" x-text="'U' + leaf.ref"></span>
+                                                                                                        <button type="button" x-show="leaf.item.hasNotes" class="ds_link sg-linkbtn" @click="openNotes(leaf.item)">Notes</button>
+                                                                                                        <button type="button" x-show="leaf.item.hasMore" class="ds_link sg-linkbtn" @click="openMore(leaf.item)">More info</button>
+                                                                                                    </span>
+                                                                                                </div>
+                                                                                                <div class="sg-kdgrid sg-kdgrid--2" x-html="knowDoHtml(leaf.item)"></div>
+                                                                                            </div>
+                                                                                        </template>
+                                                                                    </div>
+                                                                                </template>
+                                                                            </div>
+                                                                        </template>
+                                                                    </div>
+                                                                </details>
+                                                            </template>
+                                                        </div>
+                                                    </details>
+                                                </template>
+                                            </div>
+                                        </details>
+                                    </template>
+                                </section>
+                            </template>
+
+                            <!-- ============ Understanding matrix ============ -->
+                            <template x-if="filtered.length && view === 'understanding'">
+                                <section aria-labelledby="understanding-title">
+                                    <h2 id="understanding-title" class="ds_h3">Understanding matrix</h2>
+                                    <div class="sg-toolbar">
+                                        <p class="sg-hint">Select a sub-strand to see its Know and Do.</p>
+                                        <button type="button" class="ds_button ds_button--secondary ds_button--small no-print" style="margin:0;width:auto" @click="levelsAsRows = !levelsAsRows" x-text="levelsAsRows ? 'Show strands as rows' : 'Show levels as rows'"></button>
+                                    </div>
+
+                                    <template x-for="m in matrix" :key="m.area">
+                                        <div class="sg-matrix">
+                                            <div class="sg-areabar"><h3 x-text="m.area"></h3><span x-text="m.count + ' records' + (m.subSubCount ? ' · ' + m.subSubCount + ' sub-sub strand' + (m.subSubCount === 1 ? '' : 's') : '')"></span></div>
+                                            <div class="sg-table-scroll">
+                                                <table class="ds_table sg-stack">
+                                                    <caption class="visually-hidden" x-text="'Understanding statements for ' + m.area"></caption>
+                                                    <thead>
+                                                        <tr>
+                                                            <th scope="col" x-text="levelsAsRows ? 'Level / Strand' : 'Strand / Level'"></th>
+                                                            <template x-for="col in (levelsAsRows ? m.strands : m.levels)" :key="col">
+                                                                <th scope="col"><span x-show="!levelsAsRows" :class="levelTag(col)" x-text="col"></span><span x-show="levelsAsRows" x-text="col"></span></th>
+                                                            </template>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <template x-for="row in (levelsAsRows ? m.levels : m.strands)" :key="row">
+                                                            <tr>
+                                                                <th scope="row"><span x-show="levelsAsRows" :class="levelTag(row)" x-text="row"></span><span x-show="!levelsAsRows" x-text="row"></span></th>
+                                                                <template x-for="col in (levelsAsRows ? m.strands : m.levels)" :key="col">
+                                                                    <td class="sg-cell" :data-level="col" :class="!matrixCell(m, row, col).length && 'sg-empty'">
+                                                                        <template x-for="(g, gi) in matrixCell(m, row, col)" :key="gi">
+                                                                            <div>
+                                                                                <p class="sg-stmt" style="margin:0 0 0.375rem" x-text="g.statement"></p>
+                                                                                <ul class="sg-nolist" style="list-style:none;padding:0;margin:0">
+                                                                                    <template x-for="it in g.items" :key="it.id">
+                                                                                        <li style="margin:0 0 0.375rem">
+                                                                                            <span class="sg-record-link">
+                                                                                                <button type="button" class="ds_link sg-linkbtn" @click="openDetail(it)" x-text="it.subStrand"></button>
+                                                                                                <span x-show="it.subSubStrand" class="ds_tag ds_tag--purple sg-ssub"><span class="visually-hidden">Sub-sub strand: </span><span x-text="it.subSubStrand"></span></span>
+                                                                                                <button type="button" x-show="it.hasNotes" class="ds_link sg-linkbtn" @click="openNotes(it)">Notes</button>
+                                                                                                <button type="button" x-show="it.hasMore" class="ds_link sg-linkbtn" @click="openMore(it)">More info</button>
+                                                                                            </span>
+                                                                                        </li>
+                                                                                    </template>
+                                                                                </ul>
+                                                                            </div>
+                                                                        </template>
+                                                                        <span x-show="!matrixCell(m, row, col).length" aria-label="No records">&mdash;</span>
+                                                                    </td>
+                                                                </template>
+                                                            </tr>
+                                                        </template>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </section>
+                            </template>
+
+                            <!-- ============ Know and Do matrix ============ -->
+                            <template x-if="filtered.length && view === 'knowdo'">
+                                <section aria-labelledby="knowdo-title">
+                                    <h2 id="knowdo-title" class="ds_h3">Know and Do</h2>
+                                    <div class="sg-toolbar">
+                                        <p class="sg-hint">Know and Do statements by level and strand. Select a sub-strand name for full details.</p>
+                                        <button type="button" class="ds_button ds_button--secondary ds_button--small no-print" style="margin:0;width:auto" @click="kdLevelsAsRows = !kdLevelsAsRows" x-text="kdLevelsAsRows ? 'Show strands as rows' : 'Show levels as rows'"></button>
+                                    </div>
+
+                                    <template x-for="m in matrix" :key="m.area">
+                                        <div class="sg-matrix">
+                                            <div class="sg-areabar"><h3 x-text="m.area"></h3><span x-text="m.count + ' records' + (m.subSubCount ? ' · ' + m.subSubCount + ' sub-sub strand' + (m.subSubCount === 1 ? '' : 's') : '')"></span></div>
+                                            <div class="sg-table-scroll">
+                                                <table class="ds_table sg-stack">
+                                                    <caption class="visually-hidden" x-text="'Know and Do statements for ' + m.area"></caption>
+                                                    <thead>
+                                                        <tr>
+                                                            <th scope="col" x-text="kdLevelsAsRows ? 'Level / Strand' : 'Strand / Level'"></th>
+                                                            <template x-for="col in (kdLevelsAsRows ? m.strands : m.levels)" :key="col">
+                                                                <th scope="col"><span x-show="!kdLevelsAsRows" :class="levelTag(col)" x-text="col"></span><span x-show="kdLevelsAsRows" x-text="col"></span></th>
+                                                            </template>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <template x-for="row in (kdLevelsAsRows ? m.levels : m.strands)" :key="row">
+                                                            <tr>
+                                                                <th scope="row"><span x-show="kdLevelsAsRows" :class="levelTag(row)" x-text="row"></span><span x-show="!kdLevelsAsRows" x-text="row"></span></th>
+                                                                <template x-for="col in (kdLevelsAsRows ? m.strands : m.levels)" :key="col">
+                                                                    <td class="sg-cell" :data-level="col" :class="!kdItems(m, row, col).length && 'sg-empty'">
+                                                                        <template x-for="it in kdItems(m, row, col)" :key="it.id">
+                                                                            <div class="sg-box sg-box--grey">
+                                                                                <div class="sg-record__head">
+                                                                                    <span class="sg-record-link">
+                                                                                        <button type="button" class="ds_link sg-linkbtn" style="font-weight:500" @click="openDetail(it)" x-text="it.subStrand"></button>
+                                                                                        <span x-show="it.subSubStrand" class="ds_tag ds_tag--purple sg-ssub"><span class="visually-hidden">Sub-sub strand: </span><span x-text="it.subSubStrand"></span></span>
+                                                                                    </span>
+                                                                                    <span class="sg-record__links">
+                                                                                        <button type="button" x-show="it.hasNotes" class="ds_link sg-linkbtn" @click="openNotes(it)">Notes</button>
+                                                                                        <button type="button" x-show="it.hasMore" class="ds_link sg-linkbtn" @click="openMore(it)">More info</button>
+                                                                                    </span>
+                                                                                </div>
+                                                                                <div class="sg-kdgrid" x-html="knowDoHtml(it)"></div>
+                                                                            </div>
+                                                                        </template>
+                                                                        <span x-show="!kdItems(m, row, col).length" aria-label="No records">&mdash;</span>
+                                                                    </td>
+                                                                </template>
+                                                            </tr>
+                                                        </template>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </section>
+                            </template>
+                        </div>
+
+                        <!-- ============ Record details ============ -->
+                        <section id="record-detail" class="sg-detail" tabindex="-1" aria-labelledby="record-title" x-show="detail" x-cloak>
+                            <template x-if="detail">
+                                <div>
+                                    <div class="sg-detail__head">
+                                        <h2 id="record-title" class="ds_h3">Record details</h2>
+                                        <button type="button" class="ds_button ds_button--secondary ds_button--small" @click="closeModals()">Close details</button>
+                                    </div>
+
+                                    <ol class="ds_summary-list">
+                                        <li class="ds_summary-list__item"><span class="ds_summary-list__key">Curriculum area</span><span class="ds_summary-list__value" x-text="detail.area"></span></li>
+                                        <li class="ds_summary-list__item"><span class="ds_summary-list__key">Level</span><span class="ds_summary-list__value"><span :class="levelTag(detail.level)" x-text="detail.level"></span></span></li>
+                                        <li class="ds_summary-list__item"><span class="ds_summary-list__key">Strand</span><span class="ds_summary-list__value" x-text="detail.strand"></span></li>
+                                        <li class="ds_summary-list__item"><span class="ds_summary-list__key">Sub-strand</span><span class="ds_summary-list__value" x-text="detail.subStrand"></span></li>
+                                        <li class="ds_summary-list__item" x-show="detail.subSubStrand"><span class="ds_summary-list__key">Sub-sub strand</span><span class="ds_summary-list__value" x-text="detail.subSubStrand"></span></li>
+                                        <li class="ds_summary-list__item"><span class="ds_summary-list__key">Understanding</span><span class="ds_summary-list__value" x-text="detail.statement || 'No statement specified.'"></span></li>
+                                    </ol>
+
+                                    <div class="sg-kdgrid sg-kdgrid--2" style="margin-top:1rem" x-html="knowDoHtml(detail)"></div>
+
+                                    <details class="ds_details" x-show="detail.hasNotes" :open="focusSection === 'notes'" style="margin-top:1rem">
+                                        <summary class="ds_details__summary">Notes</summary>
+                                        <div class="ds_details__text">
+                                            <template x-for="(b, bi) in detail.noteBlocks" :key="bi">
+                                                <div>
+                                                    <h4 class="ds_h4" x-show="b.heading" x-text="b.heading"></h4>
+                                                    <ul><template x-for="(t, ti) in b.bullets" :key="ti"><li x-text="t"></li></template></ul>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </details>
+
+                                    <details class="ds_details" x-show="detail.hasMore" :open="focusSection === 'more'">
+                                        <summary class="ds_details__summary">More information</summary>
+                                        <div class="ds_details__text">
+                                            <template x-if="detail.vocabTerms.length">
+                                                <div>
+                                                    <h4 class="ds_h4">Vocabulary</h4>
+                                                    <p x-show="vocabFailed" class="sg-hint">Definitions could not be loaded, so only the terms are shown.</p>
+                                                    <dl>
+                                                        <template x-for="e in vocabEntries(detail)" :key="e.term">
+                                                            <div style="margin-bottom:0.75rem">
+                                                                <dt style="font-weight:700" x-text="e.term"></dt>
+                                                                <template x-for="(d, di) in e.defs" :key="di"><dd style="margin:0" x-text="d"></dd></template>
+                                                            </div>
+                                                        </template>
+                                                    </dl>
+                                                </div>
+                                            </template>
+                                            <template x-if="detail.deepParas.length">
+                                                <div>
+                                                    <h4 class="ds_h4">Deep dive</h4>
+                                                    <template x-for="(p, pi) in detail.deepParas" :key="pi"><p x-text="p"></p></template>
+                                                </div>
+                                            </template>
+                                            <template x-if="detail.resources.length">
+                                                <div>
+                                                    <h4 class="ds_h4">Resources</h4>
+                                                    <ul>
+                                                        <template x-for="(r, ri) in detail.resources" :key="ri">
+                                                            <li>
+                                                                <a x-show="r.url" class="ds_link" :href="r.url" target="_blank" rel="noopener noreferrer"><span x-text="r.label"></span><span class="visually-hidden"> (opens in a new tab)</span></a>
+                                                                <span x-show="!r.url" x-text="r.label"></span>
+                                                                <span x-show="r.url" class="sg-hint" x-text="' ' + r.host"></span>
+                                                            </li>
+                                                        </template>
+                                                    </ul>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </details>
+                                </div>
+                            </template>
+                        </section>
+                    </div>
+                </template>
+            </main>
+        </div>
+    </div>
+
+    <div class="ds_page__bottom">
+        <footer class="ds_site-footer">
+            <div class="ds_wrapper">
+                <div class="ds_site-footer__content">
+                    <ul class="ds_site-footer__site-items">
+                        <li class="ds_site-items__item"><a href="index.html">Explorer (original design)</a></li>
+                        <li class="ds_site-items__item"><a href="indexalt.html">Explorer (sub-sub strand version)</a></li>
+                        <li class="ds_site-items__item"><a href="planner.html">Learning planner</a></li>
+                    </ul>
+                    <div class="ds_site-footer__copyright">
+                        <p>Built with the <a href="https://designsystem.gov.scot/">Scottish Government Design System</a> (MIT licence). This prototype is not an official Scottish Government service.</p>
+                    </div>
+                </div>
+            </div>
+        </footer>
+    </div>
+</div>
+
+    <script src="cic-data.js"></script>
+    <script>
+    /* =====================================================================
+       Config
+       ===================================================================== */
+    const PAGE_SIZE = 12;
+
+    // Purpose statements and big ideas, shown when a single curriculum area is selected.
+    // `match` is tested against the selected area name.
+    const PURPOSE_STATEMENTS = [
+        {
+            match: /technolog/i,
+            icon: 'fa-microchip',
+            title: 'Technologies Purpose Statement',
+            subtitle: 'Technology and Innovation curriculum framework overview',
+            paragraphs: [
+                `The Technology and Innovation curriculum gives children and young people opportunities to learn with, through and about technology to be creative, critical thinkers who use ethical, sustainable, and innovative approaches to address real world challenges, bridging theory and practice while preparing them to thrive as adaptable, socially aware citizens in a dynamic, inclusive, and rapidly evolving world.`
+            ],
+            bigIdeas: [
+                { title: '1. Understanding Our World', text: `We live in a complex world full of physical, digital, social, and economic systems. Modern living requires critically evaluating the products and decisions that shape the world around them and understanding how data is created and used, and how systems recognise patterns.` },
+                { title: '2. Innovation', text: `Engaging with our world requires the confident use of tools, materials, and processes to create products and services. Practical skills like designing, making, testing, and refining are essential to tackling real-world challenges.` },
+                { title: '3. Shaping Our Future', text: `Every technological decision has economic, environmental, and social impacts. By critiquing the implications of technology, learners develop the capacity to make responsible choices and actively shape a more sustainable and equitable future.` }
+            ]
+        },
+        {
+            match: /social\s*stud/i,
+            icon: 'fa-earth-europe',
+            title: 'Social Studies Purpose Statement',
+            subtitle: 'Social Studies curriculum framework overview',
+            paragraphs: [
+                `Social Studies supports children and young people to understand who they are, how they relate to others and how people are connected across time and place. It begins with them – their identities, their relationships and their place in the world – and extends outward to explore wider communities, societies and environments.`,
+                `Through Social Studies, children and young people build knowledge and understanding of how people live together, how decisions are made and how the past and present shape the world and influence possible futures. They develop an awareness of rights, and of responsibilities, and how these inform people’s lives. As they progress, they explore life at local, national and global scales, recognising patterns, connections and differences in the ways people experience and influence the world.`,
+                `Social Studies provides rich opportunities to investigate real-world issues and connect ideas across disciplines, supporting children and young people to question, reason and make informed and responsible decisions. Children and young people develop the knowledge and understanding to think critically, consider different perspectives, and explore meaningful questions about people, society and the environment. Social Studies encourages curiosity, respect and a desire to participate in and contribute to the world.`
+            ],
+            bigIdeas: [
+                { title: 'Change: The Changing World', text: `Change shapes people, places, societies and environments over time. Understanding how and why change occurs, why some things remain the same, and how people influence and respond to change, helps make sense of the past, present and possible futures. Exploring the causes and consequences of change at local, national and global scales shows that change can happen at different paces, be experienced in different ways by people and communities, and have intended or unintended outcomes. Understanding change and continuity helps make sense of the world.` },
+                { title: 'Connections: The Connected World', text: `Connections shape people, places, societies and environments across local, national and global scales. Understanding how people, places, systems and ideas are connected, and how these connections have changed over time, helps make sense of the past, present and possible futures. Exploring the social, economic, environmental and political connections between people and places shows that relationships influence opportunities and challenges, and how events and decisions are often interconnected. Understanding how connections influence people and places helps make sense of the world.` },
+                { title: 'Diversity: The Diverse World', text: `Diversity shapes people, places, societies and the ideas, beliefs and values that influence them. Understanding similarities and differences within and between people, communities and environments helps make sense of the past, present and possible futures. Exploring different identities, cultures, beliefs and perspectives shows that diversity shapes people's experiences, opportunities and participation within society. Recognising the value of diversity helps make sense of the world.` },
+                { title: 'Fragility: The Fragile World', text: `Fragility reflects the reality that people, places, societies, systems and environments can be disrupted, transformed or lost. Understanding how and why stability is strengthened, challenged or restored helps make sense of the past, present and possible futures. Exploring how human choices, natural processes, conflict, cooperation and sustainability influence people and places shows that stability is not always fixed. Understanding the balance between fragility and resilience helps make sense of the world.` },
+                { title: 'Knowing: Making Sense of the World', text: `Knowledge is created, interpreted and used to understand the world. Curiosity, evidence, enquiry and different perspectives shape knowledge and help make sense of the past, present and possible futures. Critical thinking helps people question, interpret and apply knowledge in informed ways. Understanding how knowledge is constructed and used helps people make sense of the world.` }
+            ]
+        }
+    ];
+
+    // Detail levels for the Summary drill-down.
+    // Level -> Design System tag colour (never red: it signals an error or a problem).
+    const LEVEL_TAGS = ['yellow', 'green', 'teal', 'blue', 'darkblue', 'purple', 'pink'];
+    const levelTag = level => {
+        const r = levelRank(level);
+        return 'ds_tag ds_tag--' + (r >= 100 ? 'grey' : LEVEL_TAGS[Math.min(r, LEVEL_TAGS.length - 1)]);
+    };
+    const sgList = list => (!list || !list.length)
+        ? '<p class="sg-none">None specified.</p>'
+        : '<ul class="sg-kd__list">' + list.map(b => `<li>${esc(b)}</li>`).join('') + '</ul>';
+    const sgKnowDo = item =>
+        `<div class="sg-kd sg-kd--know"><h4 class="sg-kd__title">Know</h4>${sgList(item.knowList)}</div>` +
+        `<div class="sg-kd sg-kd--do"><h4 class="sg-kd__title">Do</h4>${sgList(item.doList)}</div>`;
+
+    const DEPTH_OPTIONS = [
+        { id: 0, label: 'Understandings', short: 'Statements' },
+        { id: 1, label: '+ Strands',      short: 'Strands' },
+        { id: 2, label: '+ Know & Do',    short: 'Know & Do' }
+    ];
+
+    // Multi-select dropdown filters.
+    const MULTI_FILTERS = [
+        { key: 'strands',    label: 'Strands',     all: 'All strands' },
+        { key: 'subStrands', label: 'Sub-strands', all: 'All sub-strands' },
+        { key: 'subSubStrands', label: 'Sub-sub strands', all: 'All sub-sub strands' }
+    ];
+
+    const VIEWS = [
+        { id: 'map',           label: 'Curriculum Map',       icon: 'fa-solid fa-map' },
+        { id: 'summary',       label: 'Summary',              icon: 'fa-solid fa-table-cells-large' },
+        { id: 'cards',         label: 'Cards',                icon: 'fa-solid fa-grip' },
+        { id: 'tree',          label: 'Visual Tree',          icon: 'fa-solid fa-sitemap' },
+        { id: 'understanding', label: 'Understanding Matrix', icon: 'fa-solid fa-border-all' },
+        { id: 'knowdo',        label: 'Know & Do',            icon: 'fa-solid fa-list-check' }
+    ];
+
+
+    /* =====================================================================
+       Derived views (pure functions of the filtered items)
+       ===================================================================== */
+    const numericCompare = (a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+    const compareItems = (a, b) =>
+        a.area.localeCompare(b.area) || compareLevels(a.level, b.level) || a.id - b.id;
+
+    // Summary cells hold three levels of detail: statements -> strands -> strands with Know & Do.
+    function buildSummary(items) {
+        const levels = unique(items.map(i => i.level)).sort(compareLevels);
+        const stmt = i => i.statement || 'No understanding statement.';
+        const rows = [...groupBy(items, i => i.area)].map(([area, list]) => {
+            const cells = {};
+            levels.forEach(lv => {
+                const inCell = list.filter(i => i.level === lv);
+                cells[lv] = {
+                    statements: unique(inCell.map(stmt)),
+                    strands: [...groupBy(inCell, i => i.strand)]
+                        .sort((a, b) => a[0].localeCompare(b[0]))
+                        .map(([strand, strandItems]) => ({
+                            strand,
+                            groups: [...groupBy(strandItems, stmt)].map(([statement, groupItems]) => ({ statement, items: groupItems, subSubs: unique(groupItems.map(i => i.subSubStrand)) }))
+                        }))
+                };
+            });
+            return { area, cells };
+        });
+        return { levels, rows };
+    }
+
+    function buildMatrix(items) {
+        return [...groupBy(items, i => i.area)].map(([area, list]) => {
+            const cells = {}, itemCells = {};
+            groupBy(list, i => i.level + '||' + i.strand).forEach((cellItems, key) => {
+                itemCells[key] = cellItems;
+                cells[key] = [...groupBy(cellItems, i => i.statement || 'No understanding statement.')]
+                    .map(([statement, groupItems]) => ({ statement, items: groupItems }));
+            });
+            return {
+                area,
+                count: list.length,
+                subSubCount: unique(list.map(i => i.subSubStrand)).length,
+                levels: unique(list.map(i => i.level)).sort(compareLevels),
+                strands: unique(list.map(i => i.strand)).sort(),
+                cells,
+                itemCells
+            };
+        });
+    }
+
+    // Level -> area -> strand -> sub-strand. A strand carries its understanding statement(s);
+    // each leaf is one sub-strand record. If a strand has several statements, leaves point at theirs (U1, U2…).
+    function buildTree(items) {
+        const levels = unique(items.map(i => i.level)).sort(compareLevels);
+        return levels.map(level => {
+            const inLevel = items.filter(i => i.level === level);
+            return {
+                key: 'L:' + level,
+                level,
+                count: inLevel.length,
+                areas: [...groupBy(inLevel, i => i.area)].map(([area, inArea]) => ({
+                    key: 'A:' + level + '|' + area,
+                    area,
+                    count: inArea.length,
+                    strands: [...groupBy(inArea, i => i.strand)]
+                        .sort((a, b) => a[0].localeCompare(b[0]))
+                        .map(([strand, list]) => {
+                            const statements = unique(list.map(i => i.statement));
+                            const subGroups = [...groupBy(list, i => i.subStrand)].map(([subStrand, subItems]) => ({
+                                key: 'SS:' + level + '|' + area + '|' + strand + '|' + subStrand,
+                                subStrand,
+                                hasSub: subItems.some(i => i.subSubStrand),
+                                subSubCount: unique(subItems.map(i => i.subSubStrand)).length,
+                                leaves: subItems.map(item => ({
+                                    item,
+                                    ref: statements.length > 1 && item.statement ? statements.indexOf(item.statement) + 1 : 0
+                                }))
+                            }));
+                            return {
+                                key: 'S:' + level + '|' + area + '|' + strand,
+                                strand,
+                                statements,
+                                subStrandCount: subGroups.length,
+                                subSubCount: unique(list.map(i => i.subSubStrand)).length,
+                                subGroups
+                            };
+                        })
+                }))
+            };
+        });
+    }
+
+    /* =====================================================================
+       Alpine app
+       ===================================================================== */
+    function curriculumApp() {
+        return {
+            // ---- state
+            views: VIEWS,
+            view: 'summary',
+            loading: true,
+            error: null,
+            warnings: [],
+            items: [],
+            filters: { search: '', area: '', levels: [], strands: [], subStrands: [], subSubStrands: [] },
+            filtersOpen: window.innerWidth >= 768,
+            options: { levels: [], strands: [], subStrands: [], subSubStrands: [] },
+            levelsAsRows: false,
+            kdLevelsAsRows: false,
+            depthOptions: DEPTH_OPTIONS,
+            multiFilters: MULTI_FILTERS,
+            summaryDepth: 0,
+            cellDepths: {},
+            page: 1,
+            printing: false,
+            detail: null,
+            focusSection: '',
+            opener: null,
+            vocab: Object.create(null),
+            vocabLoaded: false,
+            vocabFailed: false,
+            treeOpen: {},
+            mapOpen: {},
+
+            // ---- derived (rebuilt by apply())
+            filtered: [],
+            summary: { levels: [], rows: [] },
+            matrix: [],
+            tree: [],
+
+            // ---- template helpers
+            levelTag, knowDoHtml: sgKnowDo,
+
+            // ---- loading
+            async init() {
+                this.loading = true;
+                this.error = null;
+                this.loadVocab();   // runs alongside the main load; never blocks it
+                try {
+                    const res = await fetch(CSV_URL, { cache: 'no-store' });
+                    if (!res.ok) throw new Error('HTTP status ' + res.status);
+                    const { items, warnings } = buildItems(parseCsv(await res.text()));
+                    this.items = items;
+                    this.warnings = warnings;
+                    this.apply();
+                } catch (err) {
+                    console.error('Fetch error:', err);
+                    const hint = location.protocol === 'file:'
+                        ? ' This page is open via file:// – serve it over http(s) (e.g. GitHub Pages) and try again.'
+                        : ' Check the sheet is still published to the web as CSV and that nothing is blocking docs.google.com.';
+                    this.error = 'Could not load curriculum data (' + (err && err.message ? err.message : 'network or CORS error') + ').' + hint;
+                } finally {
+                    this.loading = false;
+                }
+            },
+
+            // ---- vocabulary definitions (second sheet; failure only means terms show without definitions)
+            async loadVocab() {
+                this.vocabLoaded = false;
+                this.vocabFailed = false;
+                try {
+                    const res = await fetch(VOCAB_URL, { cache: 'no-store' });
+                    if (!res.ok) throw new Error('HTTP status ' + res.status);
+                    this.vocab = buildVocab(parseCsv(await res.text()));
+                    this.vocabLoaded = true;
+                } catch (err) {
+                    console.warn('Could not load vocabulary definitions:', err);
+                    this.vocabFailed = true;
+                }
+            },
+            vocabEntries(item) {
+                return item.vocabTerms.map(term => ({ term, defs: this.vocab[normTerm(term)] || [] }));
+            },
+
+            // ---- filtering
+            get allAreas() { return unique(this.items.map(i => i.area)).sort(); },
+
+            get activeFilterCount() {
+                const f = this.filters;
+                return (f.area ? 1 : 0) + f.levels.length + f.strands.length + f.subStrands.length + f.subSubStrands.length;
+            },
+
+            // One entry per curriculum area (ignores the filters), with its purpose statement if there is one.
+            get curriculumMap() {
+                return [...groupBy(this.items, i => i.area)]
+                    .map(([area, rows]) => ({
+                        area,
+                        slug: area.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''),
+                        levels: unique(rows.map(i => i.level)).sort(compareLevels),
+                        strands: unique(rows.map(i => i.strand)).length,
+                        subStrands: unique(rows.map(i => i.subStrand)).length,
+                        subSubStrands: unique(rows.map(i => i.subSubStrand)).length,
+                        structure: [...groupBy(rows, i => i.strand)].sort((a, b) => numericCompare(a[0], b[0])).map(([strand, sr]) => ({
+                            strand,
+                            subs: [...groupBy(sr, i => i.subStrand)].sort((a, b) => numericCompare(a[0], b[0])).map(([subStrand, ss]) => ({
+                                subStrand, subSubs: unique(ss.map(i => i.subSubStrand)).sort(numericCompare)
+                            }))
+                        })),
+                        records: rows.length,
+                        purpose: PURPOSE_STATEMENTS.find(p => p.match.test(area)) || null
+                    }))
+                    .sort((a, b) => a.area.localeCompare(b.area))
+                    ;
+            },
+            isMapOpen(area) { return this.mapOpen[area] !== false; },
+            setMapOpen(open) { this.curriculumMap.forEach(a => { this.mapOpen[a.area] = open; }); },
+            exploreArea(area, subSub) {
+                this.filters.area = area;
+                this.filters.subSubStrands = subSub ? [subSub] : [];
+                this.view = 'summary';
+                this.apply();
+                window.scrollTo({ top: 0 });
+            },
+
+            get purpose() {
+                const area = this.filters.area;
+                return area ? PURPOSE_STATEMENTS.find(p => p.match.test(area)) || null : null;
+            },
+
+            // Recomputes the cascading filter options, the filtered list and every derived view.
+            apply() {
+                const f = this.filters;
+                const prune = (selected, available) => selected.filter(v => available.includes(v));
+
+                const inArea = this.items.filter(i => !f.area || i.area === f.area);
+                this.options.levels = unique(inArea.map(i => i.level)).sort(compareLevels);
+                f.levels = prune(f.levels, this.options.levels);
+
+                const inLevel = inArea.filter(i => !f.levels.length || f.levels.includes(i.level));
+                this.options.strands = unique(inLevel.map(i => i.strand)).sort();
+                f.strands = prune(f.strands, this.options.strands);
+
+                const inStrand = inLevel.filter(i => !f.strands.length || f.strands.includes(i.strand));
+                this.options.subStrands = unique(inStrand.map(i => i.subStrand)).sort();
+                f.subStrands = prune(f.subStrands, this.options.subStrands);
+
+                const inSub = inStrand.filter(i => !f.subStrands.length || f.subStrands.includes(i.subStrand));
+                this.options.subSubStrands = unique(inSub.map(i => i.subSubStrand)).sort(numericCompare);
+                f.subSubStrands = prune(f.subSubStrands, this.options.subSubStrands);
+
+                const q = f.search.trim().toLowerCase();
+                this.filtered = inSub
+                    .filter(i => (!f.subSubStrands.length || f.subSubStrands.includes(i.subSubStrand)) && (!q || i.searchText.includes(q)))
+                    .sort(compareItems);
+
+                this.summary = buildSummary(this.filtered);
+                this.matrix = buildMatrix(this.filtered);
+                this.tree = buildTree(this.filtered);
+                this.page = 1;
+            },
+
+            setSearch(value) { this.filters.search = value; this.apply(); },
+            toggleFilter(key, value) {
+                const list = this.filters[key];
+                const i = list.indexOf(value);
+                i > -1 ? list.splice(i, 1) : list.push(value);
+                this.apply();
+            },
+            clearFilter(key) { this.filters[key] = []; this.apply(); },
+            selectOptions(key, values) {
+                this.filters[key] = unique([...this.filters[key], ...values]);
+                this.apply();
+            },
+            optionsMatching(key, q) {
+                const needle = (q || '').trim().toLowerCase();
+                return this.options[key].filter(o => !needle || o.toLowerCase().includes(needle));
+            },
+            multiLabel(f) {
+                const sel = this.filters[f.key];
+                if (!sel.length) return f.all;
+                return sel.length === 1 ? sel[0] : sel.length + ' selected';
+            },
+            resetFilters() {
+                this.filters = { search: '', area: '', levels: [], strands: [], subStrands: [], subSubStrands: [] };
+                this.apply();
+            },
+
+            // ---- cards pagination
+            get totalPages() { return Math.max(1, Math.ceil(this.filtered.length / PAGE_SIZE)); },
+            get pageGroups() {
+                const list = this.printing
+                    ? this.filtered
+                    : this.filtered.slice((this.page - 1) * PAGE_SIZE, this.page * PAGE_SIZE);
+                return [...groupBy(list, i => i.area)].map(([area, items]) => ({ area, items }));
+            },
+            // Page numbers with ellipses, e.g. 1 … 4 5 6 … 12
+            get pageList() {
+                const total = this.totalPages, cur = this.page;
+                if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+                const set = new Set([1, total, cur - 1, cur, cur + 1].filter(n => n >= 1 && n <= total));
+                const out = [];
+                [...set].sort((a, b) => a - b).forEach((n, i, arr) => { if (i && n - arr[i - 1] > 1) out.push('…'); out.push(n); });
+                return out;
+            },
+            goToPage(n) {
+                this.page = Math.min(this.totalPages, Math.max(1, n));
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            },
+
+            // ---- understanding matrix
+            matrixCell(m, row, col) {
+                const [level, strand] = this.levelsAsRows ? [row, col] : [col, row];
+                return m.cells[level + '||' + strand] || [];
+            },
+
+            // ---- know & do matrix
+            kdItems(m, row, col) {
+                const [level, strand] = this.kdLevelsAsRows ? [row, col] : [col, row];
+                return m.itemCells[level + '||' + strand] || [];
+            },
+
+            // ---- summary drill-down (global level, overridable per cell)
+            cellKey(row, level) { return row.area + '||' + level; },
+            depthFor(key) { return key in this.cellDepths ? this.cellDepths[key] : this.summaryDepth; },
+            setCellDepth(key, depth) { this.cellDepths = { ...this.cellDepths, [key]: depth }; },
+            setAllDepths(depth) { this.summaryDepth = depth; this.cellDepths = {}; },
+
+            // ---- record details panel (the Design System has no modal pattern, so details open in the page)
+            openRecord(item, section) {
+                this.opener = document.activeElement;
+                this.detail = item;
+                this.focusSection = section || '';
+                this.$nextTick(() => {
+                    const el = document.getElementById('record-detail');
+                    if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); el.focus({ preventScroll: true }); }
+                });
+            },
+            openDetail(item) { this.openRecord(item, ''); },
+            openNotes(item) { this.openRecord(item, 'notes'); },
+            openMore(item) { this.openRecord(item, 'more'); },
+            closeModals() {
+                if (!this.detail) return;
+                this.detail = null;
+                const back = this.opener;
+                this.opener = null;
+                this.$nextTick(() => { if (back && document.contains(back)) back.focus(); });
+            },
+
+            // ---- visual tree (levels start open; everything else starts collapsed)
+            isOpen(key) {
+                if (this.printing) return true;
+                return key in this.treeOpen ? this.treeOpen[key] : key.startsWith('L:');
+            },
+            setNode(key, open) { if (this.isOpen(key) !== open) this.treeOpen = { ...this.treeOpen, [key]: open }; },
+            toggleNode(key) { this.treeOpen = { ...this.treeOpen, [key]: !this.isOpen(key) }; },
+            setTree(open) {
+                const state = {};
+                this.tree.forEach(lv => {
+                    state[lv.key] = open;
+                    lv.areas.forEach(ar => {
+                        state[ar.key] = open;
+                        ar.strands.forEach(st => { state[st.key] = open; st.subGroups.forEach(sg => { state[sg.key] = open; }); });
+                    });
+                });
+                this.treeOpen = state;
+            },
+            expandTree() { this.setTree(true); },
+            collapseTree() { this.setTree(false); },
+
+            // ---- export
+            exportPdf() {
+                this.printing = true;
+                this.$nextTick(() => { window.print(); this.printing = false; });
+            }
+        };
+    }
+
+    </script>
+</body>
+</html>
